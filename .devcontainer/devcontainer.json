@@ -1,0 +1,20 @@
+{
+    "name": "Qiskit Quantum Dev Env for QAMP 2025",
+    "image": "mcr.microsoft.com/vscode/devcontainers/python:3.12",
+    "customizations": {
+      "vscode": {
+        "extensions": [
+            "ms-python.python",
+            "ms-toolsai.jupyter",
+            "mechatroner.rainbow-csv"
+        ]
+      }
+    },
+    "features": {
+      // "ghcr.io/tomharvey/devcontainer-features/aws-sso-util:1": {},
+      // "ghcr.io/devcontainers/features/aws-cli:1": {},
+      "ghcr.io/devcontainers-extra/features/poetry:2": {},
+      "ghcr.io/nils-geistmann/devcontainers-features/zsh:0":  {}
+    },
+    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y graphviz"
+  }
