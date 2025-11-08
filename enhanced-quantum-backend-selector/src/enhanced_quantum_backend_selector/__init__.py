@@ -10,6 +10,8 @@ from enhanced_quantum_backend_selector.models import (
 )
 from enhanced_quantum_backend_selector.exploration.backend_analyzer import (
     BackendAnalyzer,
+)
+from enhanced_quantum_backend_selector.exploration.circuit_scorer import (
     CircuitScorer,
 )
 

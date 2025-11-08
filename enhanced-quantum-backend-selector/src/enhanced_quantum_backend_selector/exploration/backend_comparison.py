@@ -20,7 +20,7 @@ Run this to understand how to build a multi-factor scoring system.
 
 from qiskit_aer import AerSimulator
 from qiskit.providers.fake_provider import GenericBackendV2
-from qiskit.transpiler import BackendV2
+from qiskit.providers import BackendV2
 from qiskit.circuit import QuantumCircuit
 from typing import List, Optional
 import warnings
