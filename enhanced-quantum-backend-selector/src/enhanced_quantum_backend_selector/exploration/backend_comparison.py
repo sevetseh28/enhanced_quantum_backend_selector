@@ -99,10 +99,8 @@ def rank_backends_for_circuit(backends: List[BackendV2], circuit: QuantumCircuit
         print(f"{rank:<6} {name:<20} {score:<10} {compatible:<12}")
         
         # Print reasons
-        for reason in score_data.reasons[:3]:  # Show top 3 reasons
+        for reason in score_data.reasons:
             print(f"       └─ {reason}")
-        if len(score_data.reasons) > 3:
-            print(f"       └─ ... and {len(score_data.reasons) - 3} more factors")
 
 
 def main():
@@ -137,9 +135,9 @@ def main():
             ibm_backends = service.backends(
                 filters=lambda b: b.status().operational and b.num_qubits >= 5
             )
-            if ibm_backends:
-                backends.append(ibm_backends[0])
-                print(f"  ✓ {ibm_backends[0].name} (IBM Quantum)")
+            for backend in ibm_backends:  # Limit to first 2 for brevity
+                backends.append(backend)
+                print(f"  ✓ IBM Quantum backend: {backend.name}")
         except Exception as e:
             print(f"  ℹ IBM Quantum not available: {e}")
     else:
@@ -182,7 +180,7 @@ def main():
     rank_backends_for_circuit(backends, ghz)
     
     print("\n" + "="*100)
-    print("ANALYSIS COMPLETE")
+    print("ANALYSIS COMPLETE") 
     print("="*100)
     
     print("\n📊 Key Insights for Intelligent Backend Selection:")
