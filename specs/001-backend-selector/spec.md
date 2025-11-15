@@ -100,6 +100,7 @@ Work with any Qiskit BackendV2 provider:
 5. Clean separation of concerns
 6. Graceful handling of incompatible backends (returns empty list with explanation)
 7. Robust handling of missing/incomplete calibration data (continues with available metrics)
+8. Validated against canonical quantum circuits (GHZ, QFT, VQE ansätze) showing measurably better fidelity than `least_busy()` baseline
 
 ## Out of Scope (Initial Version)
 
@@ -108,6 +109,51 @@ Work with any Qiskit BackendV2 provider:
 - Automatic circuit transpilation
 - Real-time backend monitoring
 - User preference learning
+
+## Validation & Testing Strategy
+
+### Canonical Quantum Circuits
+
+To validate recommendation quality, the library MUST include canonical quantum circuits as test cases:
+
+**Purpose:**
+- Verify that recommended backends produce better fidelity than `least_busy()` baseline
+- Provide reproducible benchmarks for different circuit types
+- Enable regression testing of recommendation algorithm improvements
+
+**Canonical Circuit Suite:**
+
+1. **GHZ States (Greenberger-Horne-Zeilinger)**
+   - Tests: Multi-qubit entanglement, long-range connectivity
+   - Variations: 3-qubit, 5-qubit, 10-qubit GHZ
+   - Success metric: State fidelity to ideal GHZ state
+
+2. **QFT (Quantum Fourier Transform)**
+   - Tests: Circuit depth handling, coherence time requirements
+   - Variations: 4-qubit, 8-qubit QFT
+   - Success metric: Output distribution fidelity
+
+3. **VQE Ansätze (Variational Quantum Eigensolver)**
+   - Tests: Gate set compatibility, connectivity patterns
+   - Variations: UCCSD ansatz, Hardware-efficient ansatz
+   - Success metric: Expectation value accuracy
+
+4. **Random Circuit Sampling**
+   - Tests: General-purpose circuit handling
+   - Variations: Different depths and qubit counts
+   - Success metric: Heavy output generation probability
+
+**Validation Methodology:**
+- For each canonical circuit, compare recommendations from `BackendSelector` vs `least_busy()`
+- Execute circuits on both recommended backends (if available)
+- Measure and compare: state fidelity, expectation values, or success probability
+- Document improvement margin (e.g., "15% better fidelity on GHZ-5")
+
+**Integration:**
+- Canonical circuits stored in `tests/fixtures/canonical_circuits.py`
+- Validation tests in `tests/test_canonical_validation.py`
+- CI/CD runs validation on fake backends (deterministic)
+- Optional extended validation against real IBM backends (requires credentials, not in CI)
 
 ## Clarifications
 

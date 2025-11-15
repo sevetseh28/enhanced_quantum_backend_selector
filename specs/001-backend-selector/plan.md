@@ -176,6 +176,53 @@ class ScoringWeights:
 - Ensure all examples run without errors
 - Validate output format
 
+#### Task 4.4: Canonical Circuit Validation
+**Files:** 
+- `tests/fixtures/canonical_circuits.py`
+- `tests/test_canonical_validation.py`
+
+**Purpose:**
+- Provide reproducible benchmark circuits for testing recommendation quality
+- Validate that recommendations outperform `least_busy()` baseline
+
+**Canonical Circuits to Implement:**
+```python
+# tests/fixtures/canonical_circuits.py
+def create_ghz_circuit(num_qubits: int) -> QuantumCircuit:
+    """Create GHZ state circuit for testing entanglement handling."""
+    
+def create_qft_circuit(num_qubits: int) -> QuantumCircuit:
+    """Create QFT circuit for testing depth and coherence."""
+    
+def create_vqe_ansatz(num_qubits: int, ansatz_type: str) -> QuantumCircuit:
+    """Create VQE ansatz for testing gate set compatibility."""
+    
+def create_random_circuit(num_qubits: int, depth: int) -> QuantumCircuit:
+    """Create random circuit for general-purpose testing."""
+```
+
+**Tests:**
+```python
+# tests/test_canonical_validation.py
+class TestCanonicalValidation:
+    def test_ghz_recommendation_quality(self):
+        """Verify GHZ circuits get backends with good connectivity."""
+        
+    def test_qft_coherence_priority(self):
+        """Verify QFT circuits prioritize coherence times."""
+        
+    def test_vqe_gate_compatibility(self):
+        """Verify VQE ansätze match native gate sets."""
+        
+    def test_recommendation_vs_least_busy_baseline(self):
+        """Compare BackendSelector vs least_busy() on all canonical circuits."""
+```
+
+**Success Metrics:**
+- Recommended backends have measurably better characteristics for each circuit type
+- Tests run deterministically on fake backends
+- Documentation includes benchmark results
+
 ### Phase 5: CI/CD & Publishing
 
 #### Task 5.1: Setup GitHub Actions - Testing Workflow
@@ -592,7 +639,11 @@ tests/  # ✅ Exists, needs content
 ├── __init__.py
 ├── test_backend_selector.py  # 🔨 NEW
 ├── test_integration.py  # 🔨 NEW
-└── validate_examples.py  # 🔨 NEW
+├── validate_examples.py  # 🔨 NEW
+├── test_canonical_validation.py  # 🔨 NEW - Canonical circuit tests
+└── fixtures/
+    ├── __init__.py  # 🔨 NEW
+    └── canonical_circuits.py  # 🔨 NEW - GHZ, QFT, VQE, random circuits
 
 docs/  # 🔨 NEW directory
 └── USER_GUIDE.md
@@ -626,6 +677,8 @@ docs/  # 🔨 NEW directory
 - [ ] Package published to PyPI
 - [ ] Pre-commit hooks configured
 - [ ] CHANGELOG.md maintained
+- [ ] Canonical circuits implemented (GHZ, QFT, VQE, random)
+- [ ] Validation tests show improvement over `least_busy()` baseline
 
 ## Timeline Estimate
 
