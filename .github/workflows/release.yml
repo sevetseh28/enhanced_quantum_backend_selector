@@ -36,35 +36,14 @@ jobs:
             @semantic-release/github@10 \
             conventional-changelog-conventionalcommits@7
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Test and build in dev container
+        uses: devcontainers/ci@v0.3
         with:
-          python-version: "3.12"
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Configure Poetry
-        run: |
-          poetry config virtualenvs.create true
-          poetry config virtualenvs.in-project true
-
-      - name: Install dependencies
-        run: |
-          cd enhanced-quantum-backend-selector
-          poetry install
-
-      - name: Run tests
-        run: |
-          cd enhanced-quantum-backend-selector
-          poetry run pytest --cov=enhanced_quantum_backend_selector --cov-fail-under=80
-
-      - name: Build package (before release)
-        run: |
-          cd enhanced-quantum-backend-selector
-          poetry build
+          runCmd: |
+            cd enhanced-quantum-backend-selector
+            poetry install
+            poetry run pytest --cov=enhanced_quantum_backend_selector --cov-fail-under=80
+            poetry build
 
       - name: Semantic Release
         env:

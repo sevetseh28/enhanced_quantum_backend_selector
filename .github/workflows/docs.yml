@@ -19,35 +19,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Build docs in dev container
+        uses: devcontainers/ci@v0.3
         with:
-          python-version: "3.12"
-
-      - name: Cache Poetry dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/pypoetry
-            ~/.cache/pip
-          key: ${{ runner.os }}-poetry-docs-${{ hashFiles('**/poetry.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-poetry-docs-
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install dependencies
-        run: |
-          cd enhanced-quantum-backend-selector
-          poetry install --with docs
-
-      - name: Build documentation
-        run: |
-          cd enhanced-quantum-backend-selector
-          poetry run mkdocs build --strict
+          runCmd: |
+            cd enhanced-quantum-backend-selector
+            poetry install --with docs
+            poetry run mkdocs build --strict
 
       - name: Upload documentation artifacts
         uses: actions/upload-artifact@v4
@@ -66,22 +44,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
+      - name: Deploy docs in dev container
+        uses: devcontainers/ci@v0.3
         with:
-          python-version: "3.12"
-
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
-
-      - name: Install dependencies
-        run: |
-          cd enhanced-quantum-backend-selector
-          poetry install --with docs
-
-      - name: Deploy to GitHub Pages
-        run: |
-          cd enhanced-quantum-backend-selector
-          poetry run mkdocs gh-deploy --force
+          runCmd: |
+            cd enhanced-quantum-backend-selector
+            poetry install --with docs
+            poetry run mkdocs gh-deploy --force
