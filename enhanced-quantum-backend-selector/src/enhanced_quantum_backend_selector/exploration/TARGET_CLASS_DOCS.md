@@ -56,7 +56,7 @@ Operations are stored as: `{instruction: {qubits_tuple: properties}}`
 
 When `qubit_properties` is set, each qubit has:
 - `t1`: T1 coherence time (seconds)
-- `t2`: T2 coherence time (seconds)  
+- `t2`: T2 coherence time (seconds)
 - `frequency`: Qubit frequency (Hz)
 
 ## Key Methods
@@ -100,7 +100,7 @@ target.update_from_instruction_schedule_map(inst_map)
 coupling_map = target.build_coupling_map()
 
 # Get all 2-qubit gate names
-two_q_gates = [op for op in target.operation_names 
+two_q_gates = [op for op in target.operation_names
                if any(len(qargs) == 2 for qargs in target.qargs[op])]
 
 # Get operation by name

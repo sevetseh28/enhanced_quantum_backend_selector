@@ -1,28 +1,114 @@
 [project]
 name = "enhanced-quantum-backend-selector"
 version = "0.1.0"
-description = ""
+description = "Intelligent quantum backend selection for Qiskit circuits"
 authors = [
-    {name = "sevetseh28",email = "hernaner28@gmail.com"}
+    {name = "sevetseh28", email = "hernaner28@gmail.com"}
 ]
 readme = "README.md"
+license = {text = "Apache-2.0"}
 requires-python = ">=3.12"
-dependencies = [
-    "qiskit (>=2.2.3,<3.0.0)",
-    "qiskit-aer (>=0.17.2,<0.18.0)",
-    "qiskit-ibm-runtime (>=0.43.1,<0.44.0)",
-    "graphviz (>=0.21,<0.22)",
-    "jupyter (>=1.1.1,<2.0.0)",
-    "matplotlib (>=3.10.7,<4.0.0)",
+keywords = ["quantum", "qiskit", "backend", "optimization", "quantum-computing"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
+dependencies = [
+    "qiskit>=2.2.3,<3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "qiskit-aer>=0.17.2,<0.18.0",
+    "qiskit-ibm-runtime>=0.43.1,<0.44.0",
+    "mypy>=1.18.2",
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.6.0",
+    "pre-commit>=3.5.0",
+]
+docs = [
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/sevetseh28/enhanced_quantum_backend_selector"
+Repository = "https://github.com/sevetseh28/enhanced_quantum_backend_selector"
+Documentation = "https://sevetseh28.github.io/enhanced_quantum_backend_selector"
+"Bug Tracker" = "https://github.com/sevetseh28/enhanced_quantum_backend_selector/issues"
+Changelog = "https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/CHANGELOG.md"
 
 [tool.poetry]
 packages = [{include = "enhanced_quantum_backend_selector", from = "src"}]
 
-
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.18.2"
+pytest = "^8.0.0"
+pytest-cov = "^4.1.0"
+ruff = "^0.6.0"
+pre-commit = "^3.5.0"
+
+[tool.poetry.group.docs.dependencies]
+mkdocs = "^1.5.0"
+mkdocs-material = "^9.5.0"
+mkdocstrings = {extras = ["python"], version = "^0.24.0"}
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_any_generics = true
+check_untyped_defs = true
+exclude = ["tests/", "examples/", "exploration/"]
+
+[[tool.mypy.overrides]]
+module = "qiskit.*"
+ignore_missing_imports = true
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["exploration/", "examples/"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "A", "C4", "PT"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"
+addopts = "--strict-markers --cov=src/enhanced_quantum_backend_selector --cov-report=term-missing --cov-report=html"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/tests/*", "*/exploration/*", "*/examples/*"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]

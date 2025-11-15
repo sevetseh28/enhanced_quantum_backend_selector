@@ -185,15 +185,15 @@ sim.max_circuits                # High limit or None
 3. **Performance Metrics**
    ```python
    target = backend.target
-   
+
    # Average 2-qubit gate error
    cx_errors = [
-       target['cx'][(q0, q1)].error 
+       target['cx'][(q0, q1)].error
        for (q0, q1) in target.qargs['cx']
        if target['cx'][(q0, q1)].error is not None
    ]
    avg_cx_error = sum(cx_errors) / len(cx_errors)
-   
+
    # Best qubits (lowest error)
    qubit_readout_errors = [
        target['measure'][(q,)].error
@@ -214,7 +214,7 @@ sim.max_circuits                # High limit or None
    # Which gates are native (not decomposed)?
    # Native gates = faster + more accurate
    native_gates = backend.target.operation_names
-   
+
    # Compare with circuit requirements
    # Fewer decompositions = better fidelity
    ```
@@ -237,19 +237,19 @@ def analyze_circuit_requirements(circuit):
 def score_backend_for_circuit(backend, circuit_requirements):
     """Score backend compatibility"""
     target = backend.target
-    
+
     # Check basic requirements
     if backend.num_qubits < circuit_requirements['num_qubits']:
         return 0.0
-    
+
     # Check gate support
     gates_supported = all(
-        gate in target.operation_names 
+        gate in target.operation_names
         for gate in circuit_requirements['gate_counts']
     )
     if not gates_supported:
         return 0.0
-    
+
     # Score based on error rates, connectivity, etc.
     # ... my scoring logic ...
 ```
@@ -260,25 +260,25 @@ def score_backend_for_circuit(backend, circuit_requirements):
 def compare_backends(backends, metric='avg_2q_error'):
     """Compare multiple backends on a metric"""
     results = {}
-    
+
     for backend in backends:
         if metric == 'avg_2q_error':
             target = backend.target
             if 'cx' in target.operation_names:
                 errors = [
-                    props.error 
+                    props.error
                     for qargs, props in target['cx'].items()
                     if props.error is not None
                 ]
                 results[backend.name] = sum(errors) / len(errors) if errors else float('inf')
-        
+
         elif metric == 'num_qubits':
             results[backend.name] = backend.num_qubits
-        
+
         elif metric == 'queue_depth':
             status = backend.status()
             results[backend.name] = status.pending_jobs
-    
+
     return sorted(results.items(), key=lambda x: x[1])
 ```
 

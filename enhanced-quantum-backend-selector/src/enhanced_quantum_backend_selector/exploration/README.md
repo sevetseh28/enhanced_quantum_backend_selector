@@ -13,7 +13,7 @@ This directory contains comprehensive research documentation and examples for un
    - Properties, methods, and data structures
    - Use cases for backend selection
    - Key metrics extraction patterns
-   
+
 2. **[BACKENDV2_DOCS.md](./BACKENDV2_DOCS.md)**
    - BackendV2 interface documentation
    - Relationship between BackendV2 and Target
@@ -250,5 +250,5 @@ The key insight: **backend selection is multi-dimensional optimization** - no si
 
 ---
 
-*Research completed: November 5, 2025*  
+*Research completed: November 5, 2025*
 *Qiskit version: 2.2 (using BackendV2 interface)*

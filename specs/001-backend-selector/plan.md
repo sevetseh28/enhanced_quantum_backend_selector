@@ -57,11 +57,11 @@ agent: speckit.plan
 class BackendSelector:
     """
     Intelligent quantum backend selector.
-    
+
     Analyzes and ranks backends based on circuit requirements and
     multiple quality criteria.
     """
-    
+
     def __init__(self, backends: List[BackendV2])
     def select_backend(self, circuit: QuantumCircuit, **kwargs) -> BackendRecommendation
     def rank_backends(self, circuit: QuantumCircuit, **kwargs) -> List[BackendRecommendation]
@@ -177,7 +177,7 @@ class ScoringWeights:
 - Validate output format
 
 #### Task 4.4: Canonical Circuit Validation
-**Files:** 
+**Files:**
 - `tests/fixtures/canonical_circuits.py`
 - `tests/test_canonical_validation.py`
 
@@ -190,13 +190,13 @@ class ScoringWeights:
 # tests/fixtures/canonical_circuits.py
 def create_ghz_circuit(num_qubits: int) -> QuantumCircuit:
     """Create GHZ state circuit for testing entanglement handling."""
-    
+
 def create_qft_circuit(num_qubits: int) -> QuantumCircuit:
     """Create QFT circuit for testing depth and coherence."""
-    
+
 def create_vqe_ansatz(num_qubits: int, ansatz_type: str) -> QuantumCircuit:
     """Create VQE ansatz for testing gate set compatibility."""
-    
+
 def create_random_circuit(num_qubits: int, depth: int) -> QuantumCircuit:
     """Create random circuit for general-purpose testing."""
 ```
@@ -207,13 +207,13 @@ def create_random_circuit(num_qubits: int, depth: int) -> QuantumCircuit:
 class TestCanonicalValidation:
     def test_ghz_recommendation_quality(self):
         """Verify GHZ circuits get backends with good connectivity."""
-        
+
     def test_qft_coherence_priority(self):
         """Verify QFT circuits prioritize coherence times."""
-        
+
     def test_vqe_gate_compatibility(self):
         """Verify VQE ansätze match native gate sets."""
-        
+
     def test_recommendation_vs_least_busy_baseline(self):
         """Compare BackendSelector vs least_busy() on all canonical circuits."""
 ```
@@ -242,7 +242,7 @@ jobs:
     strategy:
       matrix:
         python-version: ["3.12", "3.13"]
-    
+
     steps:
       - Checkout code
       - Setup Python
@@ -278,7 +278,7 @@ on:
 jobs:
   build-docs:
     runs-on: ubuntu-latest
-    
+
     steps:
       - Build Sphinx/MkDocs documentation
       - Deploy to GitHub Pages
@@ -307,7 +307,7 @@ on:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    
+
     steps:
       - Checkout code
       - Setup Python 3.12
@@ -335,11 +335,11 @@ repos:
     hooks:
       - id: ruff
       - id: ruff-format
-  
+
   - repo: https://github.com/pre-commit/mirrors-mypy
     hooks:
       - id: mypy
-  
+
   - repo: https://github.com/pre-commit/pre-commit-hooks
     hooks:
       - id: trailing-whitespace
@@ -546,16 +546,16 @@ def select_backend(
 ) -> BackendRecommendation:
     """
     Select the best backend for a circuit.
-    
+
     Args:
         circuit: Quantum circuit to execute
         weights: Custom scoring weights
         require_compatible: Only consider compatible backends
         min_score: Minimum acceptable score
-        
+
     Returns:
         BackendRecommendation with best backend and details
-        
+
     Raises:
         NoCompatibleBackendError: If no suitable backend found
     """
@@ -579,12 +579,12 @@ def rank_backends(
 ) -> List[BackendRecommendation]:
     """
     Rank all backends for a circuit.
-    
+
     Args:
         circuit: Quantum circuit to analyze
         weights: Custom scoring weights
         top_n: Return only top N results
-        
+
     Returns:
         List of BackendRecommendation sorted by score (descending)
     """

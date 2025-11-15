@@ -17,7 +17,7 @@ An intelligent backend selector that performs multi-dimensional analysis to reco
 ### 1. Circuit Analysis
 Extract requirements from quantum circuits:
 - Qubit count requirements
-- Gate type requirements  
+- Gate type requirements
 - Circuit depth analysis
 - Two-qubit gate count and connectivity patterns
 

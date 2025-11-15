@@ -129,7 +129,7 @@ selector = BackendSelector(backends=[backend1, backend2])
 selector = BackendSelector(backend_names=["ibm_brisbane", "ibm_kyoto"])
 ```
 
-**Rationale**: 
+**Rationale**:
 - Backend instances contain all needed data
 - Avoids dependency on specific provider APIs for backend retrieval
 - More explicit and type-safe
@@ -166,7 +166,7 @@ recommendations = selector.rank_backends(circuit)
 
 # Users can format as needed:
 # - Print as table
-# - Convert to pandas DataFrame  
+# - Convert to pandas DataFrame
 # - Display in Jupyter notebook
 ```
 

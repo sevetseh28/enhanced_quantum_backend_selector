@@ -6,15 +6,15 @@
         "extensions": [
             "ms-python.python",
             "ms-toolsai.jupyter",
-            "mechatroner.rainbow-csv"
+            "mechatroner.rainbow-csv",
+            "charliermarsh.ruff",
+            "ms-python.mypy-type-checker"
         ]
       }
     },
     "features": {
-      // "ghcr.io/tomharvey/devcontainer-features/aws-sso-util:1": {},
-      // "ghcr.io/devcontainers/features/aws-cli:1": {},
       "ghcr.io/devcontainers-extra/features/poetry:2": {},
       "ghcr.io/nils-geistmann/devcontainers-features/zsh:0":  {}
     },
-    "postCreateCommand": "sudo apt-get update && sudo apt-get install -y graphviz"
+    "postCreateCommand": "cd enhanced-quantum-backend-selector && poetry install --with dev,docs && poetry run pre-commit install"
   }
