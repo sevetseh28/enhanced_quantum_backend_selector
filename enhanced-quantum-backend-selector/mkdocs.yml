@@ -92,6 +92,7 @@ nav:
       - Scoring Weights: api/scoring-weights.md
   - Architecture: architecture.md
   - Contributing: contributing.md
+  - Automated Releases: automated-release.md
   - Changelog: changelog.md
 
 extra:
