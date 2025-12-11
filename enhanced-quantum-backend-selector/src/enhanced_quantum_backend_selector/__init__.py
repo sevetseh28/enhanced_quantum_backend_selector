@@ -14,9 +14,12 @@ from enhanced_quantum_backend_selector.exploration.circuit_scorer import (
     CircuitScorer,
 )
 from enhanced_quantum_backend_selector.models import (
+    AggregatedScore,
     BackendMetrics,
     BackendRecommendation,
     CircuitScore,
+    ScoringConfiguration,
+    TranspilationRun,
 )
 from enhanced_quantum_backend_selector.scoring_weights import ScoringWeights
 
@@ -26,6 +29,9 @@ __all__ = [
     "ScoringWeights",
     "BackendMetrics",
     "CircuitScore",
+    "ScoringConfiguration",
+    "AggregatedScore",
+    "TranspilationRun",
     # Exploration/internal components
     "BackendAnalyzer",
     "CircuitScorer",

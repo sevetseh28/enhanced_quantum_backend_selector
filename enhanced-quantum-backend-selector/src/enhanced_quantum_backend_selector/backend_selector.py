@@ -7,16 +7,27 @@ based on circuit requirements and multi-criteria scoring.
 
 from __future__ import annotations
 
+import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple
 
+from qiskit import transpile
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
+from qiskit.transpiler.exceptions import TranspilerError
 
 from enhanced_quantum_backend_selector.exploration.backend_analyzer import BackendAnalyzer
-from enhanced_quantum_backend_selector.models import BackendMetrics, BackendRecommendation, CircuitScore
+from enhanced_quantum_backend_selector.models import (
+    AggregatedScore,
+    BackendMetrics,
+    BackendRecommendation,
+    CircuitScore,
+    ScoringConfiguration,
+    TranspilationRun,
+)
 from enhanced_quantum_backend_selector.scoring_weights import ScoringWeights
+
+logger = logging.getLogger(__name__)
 
 
 class BackendSelector:
@@ -59,7 +70,7 @@ class BackendSelector:
     # Cache TTL: 1 hour (backend calibrations change slowly)
     CACHE_TTL_SECONDS: float = 3600.0
 
-    def __init__(self, backends: List[BackendV2]) -> None:
+    def __init__(self, backends: list[BackendV2]) -> None:
         """
         Initialize the backend selector.
 
@@ -73,21 +84,23 @@ class BackendSelector:
             raise ValueError("backends list cannot be empty")
 
         self.backends = backends
-        self._metrics_cache: Dict[str, Tuple[BackendMetrics, float]] = {}
-        self._analyzer_cache: Dict[str, BackendAnalyzer] = {}
+        self._metrics_cache: dict[str, tuple[BackendMetrics, float]] = {}
+        self._analyzer_cache: dict[str, BackendAnalyzer] = {}
+        self._calibration_cache: dict[str, tuple[object, float]] = {}
 
     def select_backend(
         self,
         circuit: QuantumCircuit,
-        weights: Optional[ScoringWeights] = None,
+        weights: ScoringWeights | None = None,
         require_compatible: bool = True,
-        min_score: Optional[float] = None,
+        min_score: float | None = None,
+        config: ScoringConfiguration | None = None,
     ) -> BackendRecommendation:
         """
         Select the best backend for a quantum circuit.
 
         Ranks all backends and returns the top recommendation based on
-        multi-criteria scoring.
+        multi-criteria scoring with transpiled circuit error analysis.
 
         Args:
             circuit: The quantum circuit to execute.
@@ -97,6 +110,8 @@ class BackendSelector:
                 exist, raises an exception.
             min_score: Minimum acceptable score (0-100). Backends below this
                 threshold are excluded.
+            config: Transpilation scoring configuration. If None, uses defaults
+                (3 runs, mean aggregation, both fractional gate modes).
 
         Returns:
             BackendRecommendation with the highest-scored backend and details.
@@ -109,9 +124,12 @@ class BackendSelector:
             >>> # Simple selection
             >>> best = selector.select_backend(circuit)
             >>>
-            >>> # With custom weights (prioritize fast execution)
-            >>> fast_weights = ScoringWeights(queue_weight=2.0)
-            >>> best = selector.select_backend(circuit, weights=fast_weights)
+            >>> # With custom configuration
+            >>> config = ScoringConfiguration(
+            ...     transpilation_runs=5,
+            ...     aggregation_method='median'
+            ... )
+            >>> best = selector.select_backend(circuit, config=config)
             >>>
             >>> # With minimum quality threshold
             >>> best = selector.select_backend(circuit, min_score=75.0)
@@ -123,16 +141,19 @@ class BackendSelector:
             raise ValueError("Circuit has no operations")
 
         # Rank all backends
-        ranked = self.rank_backends(circuit, weights=weights)
+        ranked = self.rank_backends(circuit, weights=weights, config=config)
 
         # Filter by compatibility if required
         if require_compatible:
-            ranked = [r for r in ranked if r.score_data.compatible]
+            ranked = [r for r in ranked if r.transpilation_details is not None]
             if not ranked:
                 raise RuntimeError(
                     "No compatible backends found. "
+                    "All backends failed transpilation. "
                     f"Circuit requires {circuit.num_qubits} qubits and "
-                    f"uses gates: {set(instr.operation.name for instr in circuit.data)}"
+                    f"uses gates: {
+                        {instr.operation.name for instr in circuit.data}
+                    }"
                 )
 
         # Filter by minimum score if specified
@@ -149,27 +170,32 @@ class BackendSelector:
     def rank_backends(
         self,
         circuit: QuantumCircuit,
-        weights: Optional[ScoringWeights] = None,
-        top_n: Optional[int] = None,
-    ) -> List[BackendRecommendation]:
+        weights: ScoringWeights | None = None,
+        top_n: int | None = None,
+        config: ScoringConfiguration | None = None,
+    ) -> list[BackendRecommendation]:
         """
-        Rank all backends for a quantum circuit.
+        Rank all backends for a quantum circuit using transpiled error scoring.
 
-        Analyzes each backend against circuit requirements using multi-criteria
-        scoring. Backends are sorted by total score in descending order.
+        Analyzes each backend against circuit requirements using transpiled
+        circuit error sums. Backends are sorted by total score in descending order.
 
         Args:
             circuit: The quantum circuit to analyze and match against backends.
-            weights: Custom scoring weights for criteria. If None, uses defaults
-                (fidelity=1.5, connectivity=1.0, coherence=0.8, queue=0.4).
+            weights: Custom scoring weights for criteria. If None, uses defaults.
+                (Deprecated: use config.weights instead)
             top_n: Return only the top N results. If None, returns all.
+            config: Transpilation scoring configuration. If None, uses defaults
+                (3 runs, mean aggregation, both fractional gate modes).
 
         Returns:
             List of BackendRecommendation objects sorted by score (highest first).
             Each recommendation includes backend reference, scores, metrics, and rank.
+            Backends that fail all transpilations are excluded.
 
         Raises:
             ValueError: If circuit is empty or has no operations.
+            ValueError: If all backends fail transpilation.
 
         Examples:
             >>> # Rank all backends
@@ -177,9 +203,9 @@ class BackendSelector:
             >>> for rec in ranked[:5]:
             ...     print(f"{rec.rank}. {rec.backend.name}: {rec.score_data.score:.2f}")
             >>>
-            >>> # Get top 3 with custom weights
-            >>> weights = ScoringWeights(gate_fidelity_weight=3.0)
-            >>> top3 = selector.rank_backends(circuit, weights=weights, top_n=3)
+            >>> # Get top 3 with custom config
+            >>> config = ScoringConfiguration(aggregation_method='median')
+            >>> top3 = selector.rank_backends(circuit, config=config, top_n=3)
         """
         if circuit.num_qubits == 0:
             raise ValueError("Circuit must have at least one qubit")
@@ -187,11 +213,27 @@ class BackendSelector:
         if len(circuit.data) == 0:
             raise ValueError("Circuit has no operations")
 
-        if weights is None:
-            weights = ScoringWeights()
+        # Create config if not provided
+        if config is None:
+            config = ScoringConfiguration()
 
-        # Score backends in parallel for performance
-        recommendations = self._score_backends_parallel(circuit, weights)
+        # Handle deprecated weights parameter
+        if weights is not None and config.weights is None:
+            logger.warning("Passing weights directly is deprecated. Use config.weights instead.")
+            config.weights = weights
+
+        if weights is None:
+            weights = config.weights or ScoringWeights()
+
+        # Score backends using transpilation
+        recommendations = self._score_backends_transpiled(circuit, config)
+
+        # Check if all backends failed
+        if not recommendations:
+            raise ValueError(
+                f"All {len(self.backends)} backends failed transpilation for circuit. "
+                f"Check circuit compatibility or reduce circuit depth."
+            )
 
         # Sort by score (descending)
         recommendations.sort(key=lambda r: r.score_data.score, reverse=True)
@@ -218,12 +260,55 @@ class BackendSelector:
             >>> fresh_rankings = selector.rank_backends(circuit)
         """
         self._metrics_cache.clear()
+        self._calibration_cache.clear()
+
+    def _score_backends_transpiled(
+        self,
+        circuit: QuantumCircuit,
+        config: ScoringConfiguration,
+    ) -> list[BackendRecommendation]:
+        """
+        Score backends using transpiled circuit error analysis.
+
+        Args:
+            circuit: The quantum circuit to score against.
+            config: Transpilation configuration.
+
+        Returns:
+            List of BackendRecommendation objects (excludes failed backends).
+        """
+        recommendations: list[BackendRecommendation] = []
+
+        # Use ThreadPoolExecutor for parallel scoring (max 10 workers)
+        max_workers = min(10, len(self.backends))
+
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # Submit all scoring tasks
+            future_to_backend = {
+                executor.submit(
+                    self._score_backend_with_transpilation, circuit, backend, config
+                ): backend
+                for backend in self.backends
+            }
+
+            # Collect results as they complete
+            for future in as_completed(future_to_backend):
+                try:
+                    recommendation = future.result()
+                    if recommendation is not None:  # Exclude failed backends
+                        recommendations.append(recommendation)
+                except Exception as e:
+                    backend = future_to_backend[future]
+                    # Log error but continue with other backends
+                    logger.error(f"Failed to score backend {backend.name}: {e}", exc_info=True)
+
+        return recommendations
 
     def _score_backends_parallel(
         self,
         circuit: QuantumCircuit,
         weights: ScoringWeights,
-    ) -> List[BackendRecommendation]:
+    ) -> list[BackendRecommendation]:
         """
         Score backends in parallel using ThreadPoolExecutor.
 
@@ -234,7 +319,7 @@ class BackendSelector:
         Returns:
             List of BackendRecommendation objects (unranked).
         """
-        recommendations: List[BackendRecommendation] = []
+        recommendations: list[BackendRecommendation] = []
 
         # Use ThreadPoolExecutor for parallel scoring (max 10 workers)
         max_workers = min(10, len(self.backends))
@@ -341,3 +426,288 @@ class BackendSelector:
         self._metrics_cache[backend_name] = (metrics, current_time)
 
         return metrics
+
+    def _get_backend_calibration(self, backend: BackendV2) -> object:
+        """
+        Get cached or fresh backend calibration data (target).
+
+        Implements 1-hour TTL caching for calibration data.
+
+        Args:
+            backend: The backend to get calibration for.
+
+        Returns:
+            Backend target with calibration data.
+        """
+        backend_name = backend.name
+        current_time = time.time()
+
+        # Check cache
+        if backend_name in self._calibration_cache:
+            cached_target, timestamp = self._calibration_cache[backend_name]
+            age = current_time - timestamp
+
+            # Return cached if still valid (within TTL)
+            if age < self.CACHE_TTL_SECONDS:
+                return cached_target
+
+        # Fetch fresh target
+        target = backend.target
+
+        # Update cache
+        self._calibration_cache[backend_name] = (target, current_time)
+
+        return target
+
+    def _transpile_circuit(
+        self,
+        circuit: QuantumCircuit,
+        backend: BackendV2,
+        fractional_gates: bool,
+        optimization_level: int,
+    ) -> TranspilationRun:
+        """
+        Transpile circuit for a specific backend configuration.
+
+        Args:
+            circuit: Source quantum circuit.
+            backend: Target backend.
+            fractional_gates: Enable fractional gates (placeholder - API TBD).
+            optimization_level: Qiskit optimization level (0-3).
+
+        Returns:
+            TranspilationRun with success status and error sum.
+        """
+        try:
+            # Transpile circuit to backend's native gate set
+            # Note: fractional_gates parameter handling deferred per research.md
+            transpiled = transpile(circuit, backend=backend, optimization_level=optimization_level)
+
+            # Calculate error sum from transpiled circuit
+            error_sum, missing_count = self._calculate_error_sum(transpiled, backend)
+
+            # Count instructions
+            num_instructions = len(transpiled.data)
+
+            return TranspilationRun(
+                circuit=transpiled,
+                success=True,
+                error_sum=error_sum,
+                fractional_gates=fractional_gates,
+                num_instructions=num_instructions,
+                missing_error_count=missing_count,
+            )
+
+        except TranspilerError as e:
+            # Transpilation failed - return failure run
+            logger.warning(f"Backend {backend.name}: transpilation failed - {str(e)}")
+            return TranspilationRun(
+                circuit=None,
+                success=False,
+                error_sum=None,
+                failure_reason=f"TranspilerError: {str(e)}",
+                fractional_gates=fractional_gates,
+            )
+
+        except Exception as e:
+            # Unexpected error - return failure run
+            logger.warning(f"Backend {backend.name}: unexpected transpilation error - {str(e)}")
+            return TranspilationRun(
+                circuit=None,
+                success=False,
+                error_sum=None,
+                failure_reason=f"Unexpected error: {str(e)}",
+                fractional_gates=fractional_gates,
+            )
+
+    def _calculate_error_sum(
+        self, transpiled_circuit: QuantumCircuit, backend: BackendV2
+    ) -> tuple[float, int]:
+        """
+        Calculate sum of error rates for all instructions in transpiled circuit.
+
+        Args:
+            transpiled_circuit: Circuit with native gates only.
+            backend: Backend with calibration data.
+
+        Returns:
+            Tuple of (error_sum, missing_count).
+        """
+        target = self._get_backend_calibration(backend)
+        error_sum = 0.0
+        missing_count = 0
+
+        # Identity circuit (zero instructions) gets perfect score
+        if len(transpiled_circuit.data) == 0:
+            return (0.0, 0)
+
+        for instruction in transpiled_circuit.data:
+            op_name = instruction.operation.name
+            qubits = tuple(transpiled_circuit.find_bit(q).index for q in instruction.qubits)
+
+            try:
+                # Extract error rate from target
+                if op_name in target:
+                    if qubits in target[op_name]:
+                        error = target[op_name][qubits].error
+                        if error is not None:
+                            error_sum += error
+                        else:
+                            missing_count += 1
+                            logger.debug(
+                                f"Backend {backend.name}: instruction {op_name} "
+                                f"on qubits {qubits} has None error rate"
+                            )
+                    else:
+                        missing_count += 1
+                        logger.debug(
+                            f"Backend {backend.name}: instruction {op_name} "
+                            f"on qubits {qubits} not in target"
+                        )
+                else:
+                    missing_count += 1
+                    logger.debug(
+                        f"Backend {backend.name}: operation {op_name} " f"not found in target"
+                    )
+
+            except (KeyError, AttributeError) as e:
+                # Missing error data - skip and count
+                missing_count += 1
+                logger.debug(
+                    f"Backend {backend.name}: error accessing {op_name} "
+                    f"on qubits {qubits} - {str(e)}"
+                )
+
+        # Warn if significant missing data
+        if missing_count > 0:
+            logger.warning(
+                f"Backend {backend.name}: {missing_count}/{len(transpiled_circuit.data)} "
+                f"instructions missing error data"
+            )
+
+        return (error_sum, missing_count)
+
+    def _aggregate_scores(
+        self, runs: list[TranspilationRun], method: str
+    ) -> AggregatedScore | None:
+        """
+        Aggregate multiple transpilation runs into single score.
+
+        Args:
+            runs: List of transpilation attempts.
+            method: Aggregation method ('mean', 'median', 'minimum').
+
+        Returns:
+            AggregatedScore if any runs succeeded, None if all failed.
+        """
+        if not runs:
+            return None
+
+        try:
+            return AggregatedScore.from_runs(runs, method=method)
+        except ValueError:
+            # No successful runs
+            return None
+
+    def _score_backend_with_transpilation(
+        self,
+        circuit: QuantumCircuit,
+        backend: BackendV2,
+        config: ScoringConfiguration,
+    ) -> BackendRecommendation | None:
+        """
+        Score a backend using transpiled circuit error-based method.
+
+        Args:
+            circuit: Source quantum circuit.
+            backend: Backend to score.
+            config: Transpilation configuration.
+
+        Returns:
+            BackendRecommendation if any transpilations succeeded, None if all failed.
+        """
+        # Determine which fractional gates configurations to try
+        # Note: Fractional gates API research ongoing per research.md
+        fractional_configs = []
+        if config.fractional_gates_mode == "both":
+            fractional_configs = [False, True]
+        elif config.fractional_gates_mode == "enabled":
+            fractional_configs = [True]
+        else:  # disabled
+            fractional_configs = [False]
+
+        best_score = None
+        best_fractional_config = None
+
+        for fractional_gates in fractional_configs:
+            # Run multiple transpilations
+            runs: list[TranspilationRun] = []
+
+            # Parallelize transpilations within backend
+            max_workers = min(config.transpilation_runs, 4)  # Limit parallelization
+
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                futures = [
+                    executor.submit(
+                        self._transpile_circuit,
+                        circuit,
+                        backend,
+                        fractional_gates,
+                        config.optimization_level,
+                    )
+                    for _ in range(config.transpilation_runs)
+                ]
+                runs = [f.result() for f in futures]
+
+            # Aggregate scores
+            agg_score = self._aggregate_scores(runs, config.aggregation_method)
+
+            if agg_score is None:
+                # All runs failed for this config
+                continue
+
+            # Keep best score across fractional gate configs
+            if best_score is None or agg_score.final_score < best_score.final_score:
+                best_score = agg_score
+                best_fractional_config = fractional_gates
+
+        # If all transpilations failed, exclude backend
+        if best_score is None:
+            last_failure = next(
+                (r.failure_reason for r in reversed(runs) if not r.success), "Unknown"
+            )
+            logger.warning(
+                f"Backend {backend.name} excluded: all {len(runs)} "
+                f"transpilations failed. Last error: {last_failure}"
+            )
+            return None
+
+        # Get analyzer and metrics for backward compatibility
+        analyzer = self._get_analyzer(backend)
+        metrics = self._get_metrics(analyzer)
+
+        # Create circuit score from transpilation error
+        # Lower error is better, so invert for score (higher is better)
+        # Normalize to 0-100 range
+        max_error = 1.0  # Assume max possible error sum is 1.0
+        normalized_score = max(0.0, (max_error - best_score.final_score) / max_error * 100)
+
+        score_data = CircuitScore(
+            backend=backend.name,
+            compatible=True,
+            reasons=[
+                f"Transpiled successfully with {best_score.successful_runs} runs",
+                f"Error sum: {best_score.final_score:.6f}",
+                f"Aggregation: {best_score.aggregation_method}",
+            ],
+            score=normalized_score,
+        )
+
+        return BackendRecommendation(
+            backend=backend,
+            score_data=score_data,
+            metrics=metrics,
+            rank=0,  # Will be assigned during ranking
+            transpilation_details=best_score,
+            fractional_gates_used=best_fractional_config if len(fractional_configs) > 1 else None,
+        )

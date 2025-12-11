@@ -54,18 +54,39 @@ best = selector.select_backend(qc)
 
 print(f"Recommended: {best.backend.name}")
 print(f"Score: {best.score_data.score:.2f}")
-print(f"Reasons: {', '.join(best.score_data.reasons)}")
+
+# View transpilation details
+if best.transpilation_details:
+    print(f"Error sum: {best.transpilation_details.final_score:.6f}")
+    print(f"Successful runs: {best.transpilation_details.successful_runs}")
 ```
 
 ## Features
 
 - ✅ **Multi-Criteria Scoring**: Considers fidelity, connectivity, coherence, and availability
+- ✅ **Transpiled Circuit Scoring**: Uses actual transpiled circuits for realistic error predictions
+- ✅ **Stochastic Transpilation Handling**: Runs multiple transpilations and aggregates results
 - ✅ **Provider Agnostic**: Works with any Qiskit BackendV2 provider (IBM, Aer, etc.)
-- ✅ **Customizable Weights**: Adjust scoring priorities for your use case
-- ✅ **Smart Caching**: 1-hour TTL cache minimizes backend queries
+- ✅ **Customizable Configuration**: Control transpilation runs, aggregation method, optimization level
+- ✅ **Smart Caching**: 1-hour TTL cache for backend calibration data
 - ✅ **Parallel Processing**: Scores multiple backends concurrently (up to 10 workers)
 - ✅ **Comprehensive Type Hints**: Full mypy strict mode compliance
 - ✅ **Extensive Documentation**: Detailed docstrings with examples
+
+## Transpilation Configuration
+
+```python
+from enhanced_quantum_backend_selector import ScoringConfiguration
+
+# Custom transpilation configuration
+config = ScoringConfiguration(
+    transpilation_runs=5,          # Run 5 times instead of default 3
+    aggregation_method='median',   # Use median instead of mean
+    optimization_level=2           # Lower optimization level
+)
+
+best = selector.select_backend(qc, config=config)
+```
 
 ## Custom Scoring Weights
 

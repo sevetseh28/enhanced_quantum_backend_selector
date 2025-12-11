@@ -17,4 +17,4 @@
       "ghcr.io/nils-geistmann/devcontainers-features/zsh:0":  {}
     },
     "postCreateCommand": "cd enhanced-quantum-backend-selector && poetry install --with dev,docs && poetry run pre-commit install"
-  }
+}
