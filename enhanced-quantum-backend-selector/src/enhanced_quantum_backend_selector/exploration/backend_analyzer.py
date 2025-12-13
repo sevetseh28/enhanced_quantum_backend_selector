@@ -145,39 +145,19 @@ class BackendAnalyzer:
     def score_for_circuit(
         self,
         circuit: QuantumCircuit,
-        check_qubit_count: bool = True,
-        check_gate_support: bool = True,
-        check_error_rates: bool = True,
-        check_connectivity: bool = True,
-        check_coherence_times: bool = True,
-        check_queue_depth: bool = True,
     ) -> CircuitScore:
         """
-        Score this backend for a specific circuit.
+        Score this backend for a specific circuit based on qubit errors.
 
         Args:
-            circuit: The quantum circuit to score against
-            check_qubit_count: Whether to check if backend has enough qubits
-            check_gate_support: Whether to check native gate support
-            check_error_rates: Whether to evaluate error rates
-            check_connectivity: Whether to evaluate qubit connectivity
-            check_coherence_times: Whether to evaluate coherence times
-            check_queue_depth: Whether to evaluate queue availability
+            circuit: The quantum circuit to score against (should be transpiled)
 
         Returns:
             CircuitScore containing compatibility and scoring information
         """
         metrics = self.extract_metrics()
         scorer = CircuitScorer(self.backend, metrics)
-        return scorer.score_circuit(
-            circuit,
-            check_qubit_count=check_qubit_count,
-            check_gate_support=check_gate_support,
-            check_error_rates=check_error_rates,
-            check_connectivity=check_connectivity,
-            check_coherence_times=check_coherence_times,
-            check_queue_depth=check_queue_depth,
-        )
+        return scorer.score_circuit(circuit)
 
     def print_summary(self):
         """Print a formatted summary of backend metrics"""

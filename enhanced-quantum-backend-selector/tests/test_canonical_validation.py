@@ -99,5 +99,6 @@ class TestCanonicalValidation:
 
             # Our top recommendation should have scoring details
             best = recommendations[0]
-            assert best.score_data.score >= 0
+            # Score is now negative (sum of errors), so we just check it exists
+            assert best.score_data.score is not None
             assert best.metrics is not None

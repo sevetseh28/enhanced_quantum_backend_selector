@@ -11,6 +11,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional, Tuple
 
+from qiskit import transpile
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
@@ -267,6 +268,9 @@ class BackendSelector:
         """
         Score a single backend for the circuit.
 
+        Transpiles the circuit 3 times (since transpilation is stochastic)
+        and averages the scores to get a more accurate assessment.
+
         Args:
             backend: The backend to score.
             circuit: The circuit to score against.
@@ -281,16 +285,38 @@ class BackendSelector:
         # Get cached or fresh metrics
         metrics = self._get_metrics(analyzer)
 
-        # Score the circuit
-        score_data = analyzer.score_for_circuit(circuit)
-
-        # Apply weights to score (simplified - could be more sophisticated)
-        # This is a placeholder - actual implementation would use weights
-        # to adjust individual criterion scores before combining
+        # Transpile and score 3 times, then average
+        scores = []
+        all_reasons = []
+        
+        for run_num in range(3):
+            # Transpile the circuit to this backend
+            # Each run may produce different results due to stochastic nature
+            transpiled = transpile(circuit, backend=backend, optimization_level=1)
+            
+            # Score the transpiled circuit
+            score_data = analyzer.score_for_circuit(transpiled)
+            scores.append(score_data.score)
+            
+            # Collect reasons from first run only to avoid duplication
+            if run_num == 0:
+                all_reasons = score_data.reasons.copy()
+        
+        # Calculate average score
+        avg_score = sum(scores) / len(scores)
+        
+        # Create averaged score data
+        from enhanced_quantum_backend_selector.models import CircuitScore
+        averaged_score_data = CircuitScore(
+            backend=backend.name,
+            compatible=True,  # If transpilation succeeded, it's compatible
+            reasons=all_reasons + [f"Average score over 3 transpilation runs: {avg_score:.6f}"],
+            score=avg_score,
+        )
 
         return BackendRecommendation(
             backend=backend,
-            score_data=score_data,
+            score_data=averaged_score_data,
             metrics=metrics,
             rank=0,  # Will be assigned during ranking
         )
