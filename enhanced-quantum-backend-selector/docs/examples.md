@@ -115,7 +115,44 @@ except ValueError:
 
 ## Real-World Scenarios
 
-### Scenario 1: VQE Algorithm
+### Scenario 1: Chemistry Circuit with Fractional Gates
+
+VQE and chemistry circuits benefit from fractional gates. The selector detects and reports which configuration is used:
+
+```python
+from qiskit.circuit.library import EfficientSU2
+from enhanced_quantum_backend_selector import BackendSelector
+
+# Create a typical chemistry ansatz
+ansatz = EfficientSU2(num_qubits=4, reps=2)
+ansatz.measure_all()
+
+print(f"Circuit depth: {ansatz.depth()}")
+print(f"Operations: {ansatz.count_ops()}")
+
+# Selector detects fractional gates from backend properties
+selector = BackendSelector(backends)
+rec = selector.select_backend(ansatz)
+
+print(f"Best backend: {rec.backend.name}")
+print(f"Score: {rec.score_data.score:.4f}")
+print(f"Expected error: {-rec.score_data.score * 100:.2f}%")
+
+# Check which gate configuration was detected
+for reason in rec.score_data.reasons:
+    if 'fractional' in reason.lower() or 'standard' in reason.lower():
+        print(f"Configuration: {reason}")
+```
+
+**Tip**: To compare fractional vs standard gates, include both versions in your backends list:
+```python
+backends = [
+    service.backend('ibm_torino'),  # Standard
+    service.backend('ibm_torino', use_fractional_gates=True),  # Fractional
+]
+```
+
+### Scenario 2: VQE Algorithm
 
 Variational Quantum Eigensolver requires high-fidelity gates:
 

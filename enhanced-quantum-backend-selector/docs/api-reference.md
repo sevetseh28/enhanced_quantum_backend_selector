@@ -22,6 +22,9 @@ from enhanced_quantum_backend_selector import BackendSelector
 selector = BackendSelector(backends: List[BackendV2])
 ```
 
+**Parameters:**
+- `backends`: List of BackendV2 instances. For chemistry circuits, include both standard and fractional gate versions of the same backend.
+
 **Methods:**
 
 - `select_backend()` - Select the best backend for a circuit

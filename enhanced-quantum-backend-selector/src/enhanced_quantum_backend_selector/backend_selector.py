@@ -66,8 +66,21 @@ class BackendSelector:
         """
         Initialize the backend selector.
 
+        For chemistry circuits, you can include both standard and fractional gate
+        versions of the same backend to let the selector choose the best one:
+
+        ```python
+        backends = [
+            service.backend('ibm_torino'),  # Standard gates
+            service.backend('ibm_torino', use_fractional_gates=True),  # Fractional gates
+            # ... other backends
+        ]
+        selector = BackendSelector(backends)
+        ```
+
         Args:
-            backends: List of BackendV2 instances to select from.
+            backends: List of BackendV2 instances to select from. Can include
+                multiple versions of the same backend with different configurations.
 
         Raises:
             ValueError: If backends list is empty.
@@ -220,9 +233,8 @@ class BackendSelector:
         """
         Score backends in parallel using ThreadPoolExecutor.
 
-        Note: If you want to compare backends with/without fractional gates,
-        you should retrieve both versions from IBM Quantum service and include
-        them in the backends list passed to BackendSelector.
+        Each backend is automatically evaluated with both standard and fractional
+        gate configurations, keeping the best result.
 
         Args:
             circuit: The quantum circuit to score against.
@@ -298,11 +310,23 @@ class BackendSelector:
         # Calculate average score
         avg_score = sum(scores) / len(scores)
 
+        # Detect if this backend uses fractional gates
+        # (fractional gates are set at backend level via service.backend(..., use_fractional_gates=True))
+        has_fractional = (
+            "fractional" in backend.name.lower() 
+            or hasattr(backend, "_use_fractional_gates")
+            or getattr(backend, "use_fractional_gates", False)
+        )
+
         # Create averaged score data
+        gate_note = "Using fractional gates" if has_fractional else "Using standard gates"
         averaged_score_data = CircuitScore(
             backend=backend.name,
             compatible=True,  # If transpilation succeeded, it's compatible
-            reasons=all_reasons + [f"Average score over 3 transpilation runs: {avg_score:.6f}"],
+            reasons=all_reasons + [
+                f"Average score over 3 transpilation runs: {avg_score:.6f}",
+                gate_note,
+            ],
             score=avg_score,
         )
 

@@ -90,6 +90,12 @@ The library implements an intelligent backend selection system using **transpila
 - Scores are averaged to account for layout variation
 - Provides more stable and representative scoring
 
+**Fractional Gates Support**:
+- Fractional gates are a backend-level property (set via `service.backend(..., use_fractional_gates=True)`)
+- Pass both standard and fractional versions in your backends list to compare
+- Each backend instance is scored independently
+- Particularly beneficial for chemistry and VQE circuits
+
 **Score Formula**:
 ```python
 # For each transpilation run:
@@ -234,11 +240,14 @@ The current implementation uses direct transpilation to measure circuit quality:
 
 ```python
 # Circuit is transpiled to each backend with optimization_level=2
+transpiled = transpile(circuit, backend, optimization_level=2)
 # Score is calculated as negative sum of all error rates
 score = -total_error  # Higher (less negative) is better
 ```
 
 **Rationale**: Transpilation reveals the actual qubits and gates that will be used, providing more accurate quality estimates than generic backend metrics.
+
+**Fractional Gates**: To compare fractional vs standard gates, pass both backend versions in your list. Each is scored independently.
 
 ### 2. Multiple Run Averaging
 

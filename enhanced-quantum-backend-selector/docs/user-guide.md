@@ -100,6 +100,39 @@ Compatible: True
 
 ## Advanced Features
 
+### Fractional Gates for Chemistry Circuits
+
+For chemistry and VQE circuits, fractional gates can significantly improve results. Pass both versions in your backends list and the selector will automatically compare them:
+
+```python
+from qiskit_ibm_runtime import QiskitRuntimeService
+
+service = QiskitRuntimeService()
+
+# Get both standard and fractional versions to compare
+backends = [
+    service.backend('ibm_torino'),
+    service.backend('ibm_torino', use_fractional_gates=True),
+    service.backend('ibm_brisbane'),
+    service.backend('ibm_brisbane', use_fractional_gates=True),
+]
+
+# The selector will independently score each backend instance
+selector = BackendSelector(backends)
+rec = selector.select_backend(chemistry_circuit)
+
+# Check which configuration was selected
+for reason in rec.score_data.reasons:
+    if 'fractional' in reason.lower() or 'standard' in reason.lower():
+        print(reason)  # e.g., "Using fractional gates" or "Using standard gates"
+```
+
+**Why Fractional Gates Matter:**
+- Chemistry circuits often use rotation gates with arbitrary angles
+- Fractional gates allow more efficient compilation for these circuits
+- Can reduce circuit depth and gate count significantly
+- The selector automatically tries both and picks the better one
+
 ### Get Full Rankings
 
 Compare all backends:

@@ -61,6 +61,7 @@ print(f"Reasons: {', '.join(best.score_data.reasons)}")
 ## Features
 
 - ✅ **Transpilation-Based Scoring**: Calculates actual error rates for your specific circuit
+- ✅ **Fractional Gates Support**: Automatically evaluates with/without fractional gates for chemistry circuits
 - ✅ **Provider Agnostic**: Works with any Qiskit BackendV2 provider (IBM, Aer, etc.)
 - ✅ **Multiple Run Averaging**: 3 transpilation runs for stable scoring
 - ✅ **Smart Caching**: 1-hour TTL cache minimizes backend queries
