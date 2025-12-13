@@ -56,11 +56,9 @@ def main() -> None:
     print(f"    Score: {rec.score_data.score:.6f}")
     print(f"    Expected error: {error:.3f}%")
 
-    # Find which configuration was detected
-    gate_config = "unknown"
+    # Show which configuration was detected
     for reason in rec.score_data.reasons:
         if "fractional" in reason.lower() or "standard" in reason.lower():
-            gate_config = reason
             print(f"    {reason}")
     print()
 
@@ -109,7 +107,7 @@ def main() -> None:
     print(f"  Score: {rec_custom.score_data.score:.6f}")
     print(f"  Expected error: {error_custom:.3f}%")
 
-    # Show configuration used
+    # Show which configuration was used
     for reason in rec_custom.score_data.reasons:
         if "fractional" in reason.lower() or "standard" in reason.lower():
             print(f"  {reason}")
