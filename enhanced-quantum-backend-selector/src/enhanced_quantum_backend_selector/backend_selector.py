@@ -311,9 +311,10 @@ class BackendSelector:
         avg_score = sum(scores) / len(scores)
 
         # Detect if this backend uses fractional gates
-        # (fractional gates are set at backend level via service.backend(..., use_fractional_gates=True))
+        # Fractional gates are set at backend level via:
+        # service.backend(..., use_fractional_gates=True)
         has_fractional = (
-            "fractional" in backend.name.lower() 
+            "fractional" in backend.name.lower()
             or hasattr(backend, "_use_fractional_gates")
             or getattr(backend, "use_fractional_gates", False)
         )
@@ -323,7 +324,8 @@ class BackendSelector:
         averaged_score_data = CircuitScore(
             backend=backend.name,
             compatible=True,  # If transpilation succeeded, it's compatible
-            reasons=all_reasons + [
+            reasons=all_reasons
+            + [
                 f"Average score over 3 transpilation runs: {avg_score:.6f}",
                 gate_note,
             ],

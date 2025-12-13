@@ -102,7 +102,7 @@ def main() -> None:
     print(f"  Contains rotation gates: RY, RZ")
     print()
 
-    rec_custom = selector_frac.select_backend(custom_qc)
+    rec_custom = selector.select_backend(custom_qc)
     error_custom = -rec_custom.score_data.score * 100
 
     print(f"  Best backend: {rec_custom.backend.name}")
