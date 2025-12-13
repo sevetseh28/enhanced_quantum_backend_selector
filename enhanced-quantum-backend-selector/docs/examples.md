@@ -121,7 +121,7 @@ Variational Quantum Eigensolver requires high-fidelity gates:
 
 ```python
 from qiskit import QuantumCircuit
-from enhanced_quantum_backend_selector import BackendSelector, ScoringWeights
+from enhanced_quantum_backend_selector import BackendSelector
 
 # Create VQE ansatz
 def create_vqe_circuit(num_qubits=4):
@@ -186,64 +186,41 @@ qc.h(0)
 qc.cx(0, 1)
 qc.measure_all()
 
-# Use fastest available backend
+# Use default scoring (optimized for quality)
 rec = selector.select_backend(qc)
-    gate_fidelity_weight=0.3,
-    connectivity_weight=0.5,
-    coherence_weight=0.3,
-    queue_weight=3.0,             # Get results fast
-)
-
-rec = selector.select_backend(qc, weights=prototype_weights)
-print(f"Fast backend: {rec.backend.name}")
-print(f"Queue score: {rec.score_data.queue_score:.3f}")
+print(f"Best backend: {rec.backend.name}")
+print(f"Score: {rec.score_data.score:.3f}")  # Negative error sum
+print(f"Expected error: {-rec.score_data.score:.2%}")  # As percentage
 ```
 
 ### Scenario 4: Production Workload
 
-Balanced approach for production:
+Robust backend selection with error handling:
 
 ```python
 def production_backend_selection(circuit, backends):
     """Production-ready backend selection with fallbacks."""
     selector = BackendSelector(backends)
     
-    # Balanced production weights
-    prod_weights = ScoringWeights(
-        gate_fidelity_weight=1.5,
-        connectivity_weight=1.2,
-        coherence_weight=1.0,
-        queue_weight=0.8,
-    )
-    
     try:
-        # First attempt: strict requirements
+        # Get best compatible backend
         rec = selector.select_backend(
             circuit,
-            weights=prod_weights,
             require_compatible=True,
-            min_score=0.5,
         )
-        return rec.backend, "optimal"
-    
-    except ValueError:
-        # Second attempt: lower threshold
-        try:
-            rec = selector.select_backend(
-                circuit,
-                weights=prod_weights,
-                require_compatible=True,
-                min_score=0.3,
-            )
-            return rec.backend, "acceptable"
         
-        except ValueError:
-            # Final fallback: any compatible backend
-            rec = selector.select_backend(
-                circuit,
-                require_compatible=True,
-            )
-            return rec.backend, "fallback"
+        # Check if error rate is acceptable (< 10%)
+        if -rec.score_data.score < 0.10:
+            return rec.backend, "optimal"
+        else:
+            return rec.backend, "acceptable"
+    
+    except ValueError as e:
+        # No compatible backends found
+        print(f"Warning: {e}")
+        # Get all backends and pick highest scoring
+        all_recs = selector.rank_backends(circuit)
+        return all_recs[0].backend, "fallback"
 
 # Use in production
 backend, quality = production_backend_selection(qc, backends)
@@ -260,25 +237,18 @@ from typing import Dict, List
 def batch_backend_selection(
     circuits: List[QuantumCircuit],
     backends: List,
-    strategy: str = "balanced"
 ) -> Dict[int, BackendRecommendation]:
     """Select backends for a batch of circuits."""
     selector = BackendSelector(backends)
     
-    # Define strategies
-    strategies = {
-        "quality": ScoringWeights(2.0, 1.5, 1.5, 0.2),
-        "speed": ScoringWeights(0.5, 0.8, 0.5, 3.0),
-        "balanced": ScoringWeights(),
-    }
-    
-    weights = strategies[strategy]
     recommendations = {}
     
     for i, circuit in enumerate(circuits):
-        rec = selector.select_backend(circuit, weights=weights)
+        rec = selector.select_backend(circuit)
         recommendations[i] = rec
-        print(f"Circuit {i}: {rec.backend.name} (score: {rec.score_data.score:.3f})")
+        error_pct = -rec.score_data.score * 100
+        print(f"Circuit {i}: {rec.backend.name} ")
+        print(f"  Score: {rec.score_data.score:.3f} (expected error: {error_pct:.2f}%)")
     
     return recommendations
 
@@ -290,40 +260,35 @@ circuits = [
 ]
 
 # Select backends for all circuits
-results = batch_backend_selection(circuits, backends, strategy="balanced")
+results = batch_backend_selection(circuits, backends)
 ```
 
 ## Interactive Examples
 
-### Compare All Strategies
+### Compare All Backends
 
 ```python
-def compare_strategies(circuit, backends):
-    """Compare different weight strategies for a circuit."""
+def compare_backends(circuit, backends, top_n=5):
+    """Compare top backends for a circuit."""
     selector = BackendSelector(backends)
     
-    strategies = {
-        "Quality-First": ScoringWeights(2.0, 1.5, 1.5, 0.2),
-        "Speed-First": ScoringWeights(0.5, 0.8, 0.5, 3.0),
-        "Connectivity-First": ScoringWeights(1.0, 3.0, 1.0, 0.5),
-        "Balanced": ScoringWeights(),
-    }
+    recommendations = selector.rank_backends(circuit, top_n=top_n)
     
     print(f"Circuit: {circuit.num_qubits} qubits, depth {circuit.depth()}\n")
-    print(f"{'Strategy':<20} {'Backend':<25} {'Score':>8} {'Qubits':>8}")
-    print("-" * 66)
+    print(f"{'Rank':<6} {'Backend':<25} {'Score':>10} {'Error %':>10} {'Qubits':>8}")
+    print("-" * 65)
     
-    for name, weights in strategies.items():
-        rec = selector.select_backend(circuit, weights=weights)
-        print(f"{name:<20} {rec.backend.name:<25} "
-              f"{rec.score_data.score:>8.3f} {rec.metrics.num_qubits:>8}")
+    for rec in recommendations:
+        error_pct = -rec.score_data.score * 100
+        print(f"#{rec.rank:<5} {rec.backend.name:<25} "
+              f"{rec.score_data.score:>10.4f} {error_pct:>9.2f}% {rec.metrics.num_qubits:>8}")
 
 # Run comparison
 qc = create_vqe_circuit(5)
-compare_strategies(qc, backends)
+compare_backends(qc, backends)
 ```
 
-### Analyze Score Breakdown
+### Analyze Backend Recommendation
 
 ```python
 def analyze_backend(recommendation):
@@ -332,28 +297,26 @@ def analyze_backend(recommendation):
     print(f"Backend Analysis: {recommendation.backend.name}")
     print("=" * 70)
     
-    print(f"\nOverall Score: {recommendation.score_data.score:.3f} (Rank #{recommendation.rank})")
+    # Overall score and error
+    score = recommendation.score_data.score
+    error_pct = -score * 100
+    print(f"\nScore: {score:.4f} (Rank #{recommendation.rank})")
+    print(f"Expected Error: {error_pct:.2f}%")
+    print(f"Compatible: {recommendation.score_data.compatible}")
     
-    print("\nScore Breakdown:")
-    components = [
-        ("Gate Fidelity", recommendation.score_data.gate_fidelity_score),
-        ("Connectivity", recommendation.score_data.connectivity_score),
-        ("Coherence", recommendation.score_data.coherence_score),
-        ("Queue Time", recommendation.score_data.queue_score),
-    ]
-    
-    for name, score in components:
-        bar = "█" * int(score * 20)
-        print(f"  {name:<15} {score:.3f} {bar}")
-    
+    # Backend specifications
     print("\nBackend Metrics:")
     print(f"  Qubits:          {recommendation.metrics.num_qubits}")
-    print(f"  Coupling Edges:  {len(recommendation.metrics.coupling_map)}")
-    print(f"  Avg T1:          {recommendation.metrics.t1_avg:.2e} s")
-    print(f"  Avg T2:          {recommendation.metrics.t2_avg:.2e} s")
-    print(f"  Readout Error:   {recommendation.metrics.readout_error_avg:.4f}")
+    print(f"  Connectivity:    {recommendation.metrics.num_edges} edges")
+    if recommendation.metrics.avg_t1:
+        print(f"  Avg T1:          {recommendation.metrics.avg_t1:.2e} s")
+    if recommendation.metrics.avg_t2:
+        print(f"  Avg T2:          {recommendation.metrics.avg_t2:.2e} s")
+    if recommendation.metrics.avg_readout_error is not None:
+        print(f"  Readout Error:   {recommendation.metrics.avg_readout_error:.4f}")
     print(f"  Operational:     {recommendation.metrics.operational}")
     
+    # Reasons for selection
     if recommendation.score_data.reasons:
         print("\nSelection Reasons:")
         for reason in recommendation.score_data.reasons:

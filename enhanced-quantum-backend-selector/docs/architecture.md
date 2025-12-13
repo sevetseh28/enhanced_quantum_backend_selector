@@ -133,17 +133,7 @@ class CircuitScore:
     score: float                 # Negative error sum (higher is better)
 ```
 
-**ScoringWeights** (API compatibility only):
-```python
-@dataclass
-class ScoringWeights:
-    gate_fidelity_weight: float = 1.5
-    connectivity_weight: float = 1.0
-    coherence_weight: float = 0.8
-    queue_weight: float = 0.4
-```
-
-**Note**: Current implementation uses pure transpilation-based scoring (negative error sum). ScoringWeights are available for API compatibility but **not used in scoring calculation**. The transpilation-based approach directly measures circuit quality on each backend without needing to weight different criteria.
+**Note**: Current implementation uses pure transpilation-based scoring (negative error sum). The transpilation-based approach directly measures circuit quality on each backend by calculating actual expected errors.
 
 ## Data Flow
 
@@ -364,21 +354,26 @@ if any(w < 0 for w in [fidelity_w, connectivity_w, coherence_w, queue_w]):
 
 ## Extensibility
 
-### Adding New Scoring Factors
+### Improving Scoring Accuracy
 
-1. Add weight to `ScoringWeights`:
+The current transpilation-based scoring can be enhanced:
+
+1. **Add more transpilation runs**: Increase from 3 to 5+ runs for better averaging
    ```python
-   new_factor_weight: float = 1.0
+   for run_num in range(5):  # Currently 3
+       transpiled = transpile(circuit, backend=backend, optimization_level=2)
    ```
 
-2. Calculate score in `CircuitScorer`:
+2. **Add error mitigation analysis**: Factor in error mitigation capabilities
    ```python
-   new_score = calculate_new_factor(backend, circuit)
+   if backend.supports_error_mitigation:
+       score_adjustment = calculate_mitigation_benefit()
    ```
 
-3. Include in composite score:
+3. **Consider additional metrics**: Add queue time, gate set richness, etc.
    ```python
-   total += new_score * weights.new_factor_weight
+   queue_penalty = calculate_queue_impact(backend.status().pending_jobs)
+   adjusted_score = base_score - queue_penalty
    ```
 
 ### Supporting New Backend Types

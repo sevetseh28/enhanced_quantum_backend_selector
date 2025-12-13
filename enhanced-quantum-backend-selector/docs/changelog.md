@@ -12,12 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Initial release of Enhanced Quantum Backend Selector
 - `BackendSelector` class for intelligent backend selection
-- Multi-criteria scoring system:
-  - Gate fidelity analysis
-  - Connectivity matching
-  - Coherence time evaluation
-  - Queue depth consideration
-- `ScoringWeights` dataclass for customizable scoring priorities
+- Transpilation-based scoring system:
+  - Transpiles circuits to each backend's native gate set
+  - Calculates actual error rates for qubits used
+  - Averages over 3 transpilation runs for stability
+  - Returns negative error sum as score (higher is better)
 - `BackendRecommendation` model with detailed selection information
 - Parallel backend analysis using ThreadPoolExecutor (max 10 workers)
 - Smart caching with 1-hour TTL for backend metrics

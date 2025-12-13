@@ -114,21 +114,30 @@ The recommendation includes detailed information:
 ```python
 # Overall metrics
 print(f"Rank: #{recommendation.rank}")
-print(f"Score: {recommendation.score_data.score:.3f}")
+print(f"Score: {recommendation.score_data.score:.3f}")  # Negative error sum
+print(f"Compatible: {recommendation.score_data.compatible}")
 
-# Score breakdown
-print("\nScore Components:")
-print(f"  Gate Fidelity:  {recommendation.score_data.gate_fidelity_score:.3f}")
-print(f"  Connectivity:   {recommendation.score_data.connectivity_score:.3f}")
-print(f"  Coherence:      {recommendation.score_data.coherence_score:.3f}")
-print(f"  Queue Time:     {recommendation.score_data.queue_score:.3f}")
+# Human-readable explanation
+for reason in recommendation.score_data.reasons:
+    print(f"  • {reason}")
 
 # Backend specifications
 print("\nBackend Details:")
 print(f"  Num Qubits:     {recommendation.metrics.num_qubits}")
-print(f"  Coupling Edges: {len(recommendation.metrics.coupling_map)}")
-print(f"  Avg T1 Time:    {recommendation.metrics.t1_avg:.2e} seconds")
+print(f"  Connectivity:   {recommendation.metrics.num_edges} edges")
+if recommendation.metrics.avg_t1:
+    print(f"  Avg T1 Time:    {recommendation.metrics.avg_t1:.2e} seconds")
 ```
+
+**Understanding Scores:**
+
+- Score is the **negative sum of all errors**: `score = -total_error`
+- **Higher scores are better** (less negative = lower error)
+- Example: `-0.01` (1% error) is better than `-0.05` (5% error)
+- Score is calculated by:
+  1. Transpiling your circuit to the backend (optimization level 2)
+  2. Summing all error rates for the qubits used in the transpiled circuit
+  3. Averaging over 3 independent transpilation runs
 
 ### 5. Execute Your Circuit
 

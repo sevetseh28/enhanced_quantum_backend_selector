@@ -1,10 +1,10 @@
 """Advanced usage example for Enhanced Quantum Backend Selector.
 
 This example demonstrates:
-1. Custom scoring weights for different optimization goals
-2. Comparing multiple scoring strategies
-3. Handling edge cases (incompatible backends, minimum scores)
-4. Understanding the impact of different weight configurations
+1. Comparing multiple backends with transpilation-based scoring
+2. Understanding score interpretation (negative error sums)
+3. Analyzing top-ranked backends
+4. Handling different circuit complexities
 """
 
 from qiskit import QuantumCircuit
@@ -13,15 +13,17 @@ from qiskit.providers.fake_provider import GenericBackendV2
 from enhanced_quantum_backend_selector import (
     BackendRecommendation,
     BackendSelector,
-    ScoringWeights,
 )
 
 
-def print_recommendation(rec: BackendRecommendation, strategy: str) -> None:
+def print_recommendation(rec: BackendRecommendation, title: str) -> None:
     """Print formatted recommendation details."""
-    print(f"\n  Strategy: {strategy}")
+    error_pct = -rec.score_data.score * 100
+    print(f"\n  {title}")
     print(f"  Backend:  {rec.backend.name}")
-    print(f"  Score:    {rec.score_data.score:.3f}")
+    print(f"  Score:    {rec.score_data.score:.6f} (negative error sum)")
+    print(f"  Error:    {error_pct:.3f}%")
+    print(f"  Qubits:   {rec.metrics.num_qubits}")
     print(f"  Compatible: {rec.score_data.compatible}")
 
 
@@ -58,111 +60,87 @@ def main() -> None:
 
     selector = BackendSelector(backends)
 
-    # Example 1: Quality-First Strategy
+    # Example 1: Get Best Backend
     print("=" * 70)
-    print("Example 1: Quality-First Strategy")
-    print("  Prioritize gate fidelity and coherence over queue time")
+    print("Example 1: Select Best Backend")
+    print("  Uses transpilation-based scoring to find optimal backend")
     print("-" * 70)
 
-    quality_weights = ScoringWeights(
-        gate_fidelity_weight=2.0,   # Very high priority
-        connectivity_weight=1.5,     # High priority
-        coherence_weight=1.5,        # High priority
-        queue_weight=0.2,            # Low priority - we don't care about waiting
-    )
-
-    quality_rec = selector.select_backend(qc, weights=quality_weights)
-    print_recommendation(quality_rec, "Quality-First")
+    best = selector.select_backend(qc)
+    print_recommendation(best, "Best Backend (Rank #1)")
     print()
 
-    # Example 2: Speed-First Strategy
+    # Example 2: Get Top 3 Rankings
     print("=" * 70)
-    print("Example 2: Speed-First Strategy")
-    print("  Prioritize queue time - get results quickly")
+    print("Example 2: Compare Top 3 Backends")
+    print("  Shows how backends compare on actual transpiled circuit")
     print("-" * 70)
 
-    speed_weights = ScoringWeights(
-        gate_fidelity_weight=0.5,    # Lower priority
-        connectivity_weight=0.8,     # Moderate priority
-        coherence_weight=0.5,        # Lower priority
-        queue_weight=3.0,            # Very high priority - minimize wait
-    )
-
-    speed_rec = selector.select_backend(qc, weights=speed_weights)
-    print_recommendation(speed_rec, "Speed-First")
+    top_3 = selector.rank_backends(qc, top_n=3)
+    for rec in top_3:
+        print_recommendation(rec, f"Rank #{rec.rank}")
     print()
 
-    # Example 3: Balanced Strategy (default)
+    # Example 3: All Rankings
     print("=" * 70)
-    print("Example 3: Balanced Strategy")
-    print("  Default weights - balanced approach")
+    print("Example 3: Full Backend Rankings")
+    print("  Complete ranking of all available backends")
     print("-" * 70)
 
-    # Using default weights
-    balanced_rec = selector.select_backend(qc)
-    print_recommendation(balanced_rec, "Balanced (Default)")
+    all_recs = selector.rank_backends(qc)
+    print(f"\n  {'Rank':<6} {'Backend':<30} {'Score':>12} {'Error %':>10} {'Qubits':>8}")
+    print("  " + "-" * 72)
+    for rec in all_recs:
+        error_pct = -rec.score_data.score * 100
+        print(f"  #{rec.rank:<5} {rec.backend.name:<30} "
+              f"{rec.score_data.score:>12.6f} {error_pct:>9.3f}% {rec.metrics.num_qubits:>8}")
     print()
 
-    # Example 4: Connectivity-First Strategy
+    # Example 4: Understanding Score Differences
     print("=" * 70)
-    print("Example 4: Connectivity-First Strategy")
-    print("  For circuits with complex coupling requirements")
+    print("Example 4: Score Interpretation")
+    print("  Scores are negative error sums - higher (less negative) is better")
     print("-" * 70)
 
-    connectivity_weights = ScoringWeights(
-        gate_fidelity_weight=1.0,
-        connectivity_weight=3.0,     # Very high - need good topology match
-        coherence_weight=1.0,
-        queue_weight=0.5,
-    )
+    print(f"\n  Best backend: {all_recs[0].backend.name}")
+    print(f"    Score: {all_recs[0].score_data.score:.6f}")
+    print(f"    Expected error: {-all_recs[0].score_data.score * 100:.3f}%")
+    print(f"\n  Worst backend: {all_recs[-1].backend.name}")
+    print(f"    Score: {all_recs[-1].score_data.score:.6f}")
+    print(f"    Expected error: {-all_recs[-1].score_data.score * 100:.3f}%")
 
-    connectivity_rec = selector.select_backend(qc, weights=connectivity_weights)
-    print_recommendation(connectivity_rec, "Connectivity-First")
+    improvement = (all_recs[-1].score_data.score - all_recs[0].score_data.score)
+    improvement_pct = (-improvement / -all_recs[-1].score_data.score) * 100
+    print(f"\n  Error reduction by choosing best: {improvement_pct:.1f}%")
     print()
 
     # Example 5: Compare all strategies side-by-side
     print("=" * 70)
     print("Example 5: Strategy Comparison Summary")
-    print("-" * 70)
-
-    strategies = [
-        ("Quality-First", quality_rec),
-        ("Speed-First", speed_rec),
-        ("Balanced", balanced_rec),
-        ("Connectivity-First", connectivity_rec),
-    ]
-
-    print("\n  Backend Selection Summary:")
-    print("  " + "-" * 66)
-    print(f"  {'Strategy':<20} {'Backend':<25} {'Score':>8} {'Qubits':>8}")
-    print("  " + "-" * 66)
-
-    for strategy, rec in strategies:
-        print(f"  {strategy:<20} {rec.backend.name:<25} "
-              f"{rec.score_data.score:>8.3f} {rec.metrics.num_qubits:>8}")
     print()
 
-    # Example 6: Minimum score filtering
+    # Example 5: Minimum score filtering
     print("=" * 70)
-    print("Example 6: Minimum Score Filtering")
+    print("Example 5: Minimum Score Filtering")
     print("  Require backends to meet quality threshold")
     print("-" * 70)
 
-    min_score = -0.1  # Negative score: lower error = higher (less negative) score
-    print(f"\n  Minimum acceptable score: {min_score}")
-    print("  (Note: Scores are negative error sums; -0.01 is better than -0.1)")
+    min_score = -0.05  # Require less than 5% expected error
+    print(f"\n  Minimum acceptable score: {min_score} (< 5% error)")
+    print("  Note: Scores are negative - higher (less negative) is better")
 
     try:
         filtered_rec = selector.select_backend(qc, min_score=min_score)
+        error_pct = -filtered_rec.score_data.score * 100
         print(f"  ✓ Found backend: {filtered_rec.backend.name} "
-              f"(score: {filtered_rec.score_data.score:.3f})")
-    except ValueError as e:
+              f"(score: {filtered_rec.score_data.score:.6f}, error: {error_pct:.3f}%)")
+    except RuntimeError as e:
         print(f"  ✗ No backends met minimum score: {e}")
     print()
 
-    # Example 7: Compatibility checking
+    # Example 6: Compatibility checking
     print("=" * 70)
-    print("Example 7: Strict Compatibility Checking")
+    print("Example 6: Strict Compatibility Checking")
     print("  Ensure backend can execute the circuit")
     print("-" * 70)
 
@@ -170,33 +148,8 @@ def main() -> None:
     try:
         strict_rec = selector.select_backend(qc, require_compatible=True)
         print(f"  ✓ Compatible backend: {strict_rec.backend.name}")
-    except ValueError as e:
+    except RuntimeError as e:
         print(f"  ✗ Error: {e}")
-
-    print("\n  Without strict compatibility:")
-    lenient_rec = selector.select_backend(qc, require_compatible=False)
-    print(f"  ✓ Selected: {lenient_rec.backend.name}")
-    print()
-
-    # Example 8: Full ranking with custom top_n
-    print("=" * 70)
-    print("Example 8: Full Rankings")
-    print("  Get all backends ranked for comparison")
-    print("-" * 70)
-
-    all_rankings = selector.rank_backends(qc, top_n=None)  # Get all
-
-    print(f"\n  Complete Backend Rankings ({len(all_rankings)} backends):")
-    print("  " + "-" * 66)
-    print(f"  {'Rank':>4} {'Backend':<25} {'Score':>8} {'Qubits':>8} {'Status':<15}")
-    print("  " + "-" * 66)
-
-    for rec in all_rankings:
-        status = "✓ Compatible" if rec.score_data.compatible else "✗ Incompatible"
-        print(
-            f"  {rec.rank:>4} {rec.backend.name:<25} "
-            f"{rec.score_data.score:>8.3f} {rec.metrics.num_qubits:>8} {status:<15}"
-        )
     print()
 
     print("=" * 70)

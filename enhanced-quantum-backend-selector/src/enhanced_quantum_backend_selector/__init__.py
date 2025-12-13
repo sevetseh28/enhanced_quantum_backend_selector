@@ -13,12 +13,10 @@ from enhanced_quantum_backend_selector.models import (
     BackendRecommendation,
     CircuitScore,
 )
-from enhanced_quantum_backend_selector.scoring_weights import ScoringWeights
 
 __all__ = [
     "BackendSelector",
     "BackendRecommendation",
-    "ScoringWeights",
     "BackendMetrics",
     "CircuitScore",
     # Advanced components

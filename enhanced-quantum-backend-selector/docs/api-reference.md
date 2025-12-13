@@ -7,8 +7,8 @@ Complete API documentation for the Enhanced Quantum Backend Selector.
 The library provides three main public classes:
 
 - `BackendSelector` - Main API for backend selection
-- `ScoringWeights` - Configuration for scoring priorities (API compatibility only)
 - `BackendRecommendation` - Selection results
+- `BackendMetrics` - Backend specifications
 
 ## Quick Reference
 
@@ -26,23 +26,6 @@ selector = BackendSelector(backends: List[BackendV2])
 
 - `select_backend()` - Select the best backend for a circuit
 - `rank_backends()` - Get ranked list of all backends
-
-### ScoringWeights
-
-Configuration for multi-criteria scoring.
-
-```python
-from enhanced_quantum_backend_selector import ScoringWeights
-
-weights = ScoringWeights(
-    gate_fidelity_weight: float = 1.5,
-    connectivity_weight: float = 1.0,
-    coherence_weight: float = 0.8,
-    queue_weight: float = 0.4,
-)
-```
-
-**Note:** ScoringWeights are available for API compatibility but not currently used in transpilation-based scoring.
 
 ### BackendRecommendation
 
@@ -93,15 +76,9 @@ BackendRecommendation
 │   └── score: float (negative error sum, higher is better)
 ├── metrics: BackendMetrics
 └── rank: int
-
-ScoringWeights (API compatibility only - not used in scoring)
-├── gate_fidelity_weight: float
-├── connectivity_weight: float
-├── coherence_weight: float
-└── queue_weight: float
 ```
 
-**Note on Scoring:** The current implementation uses pure transpilation-based scoring where the score is calculated as the negative sum of all error rates from the transpiled circuit. The `ScoringWeights` class is maintained for API compatibility but does not affect score calculations.
+**Note on Scoring:** The current implementation uses pure transpilation-based scoring where the score is calculated as the negative sum of all error rates from the transpiled circuit.
 
 ## Module Structure
 
@@ -111,7 +88,6 @@ enhanced_quantum_backend_selector/
 ├── backend_selector.py            # BackendSelector class
 ├── backend_analyzer.py            # Internal: Backend analysis
 ├── circuit_scorer.py              # Internal: Circuit scoring
-├── scoring_weights.py             # ScoringWeights class
 └── models.py                      # Data models
 ```
 
@@ -123,7 +99,8 @@ All public classes and functions are exported from the top-level module:
 from enhanced_quantum_backend_selector import (
     BackendSelector,
     BackendRecommendation,
-    ScoringWeights,
+    BackendMetrics,
+    CircuitScore,
 )
 ```
 
@@ -139,10 +116,9 @@ All public APIs have complete type annotations compatible with mypy strict mode:
 def select_backend(
     self,
     circuit: QuantumCircuit,
-    weights: ScoringWeights | None = None,
     top_n: int | None = None,
     require_compatible: bool = True,
-    min_score: float = 0.0,
+    min_score: float | None = None,
 ) -> BackendRecommendation:
     ...
 ```

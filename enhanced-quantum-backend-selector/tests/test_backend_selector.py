@@ -11,7 +11,6 @@ from qiskit_aer import AerSimulator
 from enhanced_quantum_backend_selector import (
     BackendRecommendation,
     BackendSelector,
-    ScoringWeights,
 )
 
 
@@ -81,19 +80,6 @@ class TestBackendSelector:
         assert isinstance(best, BackendRecommendation)
         assert best.rank == 1
 
-    def test_select_backend_with_custom_weights(self, backends, simple_circuit):
-        """Test backend selection with custom scoring weights."""
-        selector = BackendSelector(backends)
-        custom_weights = ScoringWeights(
-            gate_fidelity_weight=2.0,
-            connectivity_weight=1.0,
-            coherence_weight=0.5,
-            queue_weight=0.1,
-        )
-
-        best = selector.select_backend(simple_circuit, weights=custom_weights)
-        assert isinstance(best, BackendRecommendation)
-
     def test_rank_backends_with_top_n(self, backends, simple_circuit):
         """Test that top_n parameter limits results."""
         selector = BackendSelector(backends)
@@ -144,44 +130,3 @@ class TestBackendSelector:
 
         assert cache_size_after_first == cache_size_after_second
         assert cache_size_after_first == len(backends)
-
-
-class TestScoringWeights:
-    """Test suite for ScoringWeights dataclass."""
-
-    def test_default_weights(self):
-        """Test default weight values."""
-        weights = ScoringWeights()
-
-        assert weights.gate_fidelity_weight == 1.5
-        assert weights.connectivity_weight == 1.0
-        assert weights.coherence_weight == 0.8
-        assert weights.queue_weight == 0.4
-
-    def test_custom_weights(self):
-        """Test custom weight values."""
-        weights = ScoringWeights(
-            gate_fidelity_weight=2.0,
-            connectivity_weight=1.5,
-            coherence_weight=1.0,
-            queue_weight=0.5,
-        )
-
-        assert weights.gate_fidelity_weight == 2.0
-        assert weights.connectivity_weight == 1.5
-        assert weights.coherence_weight == 1.0
-        assert weights.queue_weight == 0.5
-
-    def test_negative_weight_raises_error(self):
-        """Test that negative weights raise ValueError."""
-        with pytest.raises(ValueError, match="gate_fidelity_weight must be non-negative"):
-            ScoringWeights(gate_fidelity_weight=-1.0)
-
-        with pytest.raises(ValueError, match="connectivity_weight must be non-negative"):
-            ScoringWeights(connectivity_weight=-1.0)
-
-        with pytest.raises(ValueError, match="coherence_weight must be non-negative"):
-            ScoringWeights(coherence_weight=-1.0)
-
-        with pytest.raises(ValueError, match="queue_weight must be non-negative"):
-            ScoringWeights(queue_weight=-1.0)

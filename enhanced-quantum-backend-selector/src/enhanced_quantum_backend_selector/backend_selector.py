@@ -20,7 +20,6 @@ from enhanced_quantum_backend_selector.models import (
     BackendRecommendation,
     CircuitScore,
 )
-from enhanced_quantum_backend_selector.scoring_weights import ScoringWeights
 
 
 class BackendSelector:
@@ -83,7 +82,6 @@ class BackendSelector:
     def select_backend(
         self,
         circuit: QuantumCircuit,
-        weights: ScoringWeights | None = None,
         require_compatible: bool = True,
         min_score: float | None = None,
     ) -> BackendRecommendation:
@@ -91,16 +89,16 @@ class BackendSelector:
         Select the best backend for a quantum circuit.
 
         Ranks all backends and returns the top recommendation based on
-        multi-criteria scoring.
+        transpilation-based error analysis.
 
         Args:
             circuit: The quantum circuit to execute.
-            weights: Custom scoring weights. If None, uses defaults.
             require_compatible: Only consider compatible backends (sufficient
                 qubits, supported gates). If True and no compatible backends
                 exist, raises an exception.
-            min_score: Minimum acceptable score (0-100). Backends below this
-                threshold are excluded.
+            min_score: Minimum acceptable score. Backends below this
+                threshold are excluded. Note: scores are negative (error sums),
+                so -0.01 is better than -0.05.
 
         Returns:
             BackendRecommendation with the highest-scored backend and details.
@@ -113,12 +111,8 @@ class BackendSelector:
             >>> # Simple selection
             >>> best = selector.select_backend(circuit)
             >>>
-            >>> # With custom weights (prioritize fast execution)
-            >>> fast_weights = ScoringWeights(queue_weight=2.0)
-            >>> best = selector.select_backend(circuit, weights=fast_weights)
-            >>>
-            >>> # With minimum quality threshold
-            >>> best = selector.select_backend(circuit, min_score=75.0)
+            >>> # With minimum quality threshold (< 5% expected error)
+            >>> best = selector.select_backend(circuit, min_score=-0.05)
         """
         if circuit.num_qubits == 0:
             raise ValueError("Circuit must have at least one qubit")
@@ -127,7 +121,7 @@ class BackendSelector:
             raise ValueError("Circuit has no operations")
 
         # Rank all backends
-        ranked = self.rank_backends(circuit, weights=weights)
+        ranked = self.rank_backends(circuit)
 
         # Filter by compatibility if required
         if require_compatible:
@@ -154,24 +148,22 @@ class BackendSelector:
     def rank_backends(
         self,
         circuit: QuantumCircuit,
-        weights: ScoringWeights | None = None,
         top_n: int | None = None,
     ) -> list[BackendRecommendation]:
         """
         Rank all backends for a quantum circuit.
 
-        Analyzes each backend against circuit requirements using multi-criteria
-        scoring. Backends are sorted by total score in descending order.
+        Analyzes each backend against circuit requirements using transpilation-based
+        error analysis. Backends are sorted by score (highest/least negative first).
 
         Args:
             circuit: The quantum circuit to analyze and match against backends.
-            weights: Custom scoring weights for criteria. If None, uses defaults
-                (fidelity=1.5, connectivity=1.0, coherence=0.8, queue=0.4).
             top_n: Return only the top N results. If None, returns all.
 
         Returns:
             List of BackendRecommendation objects sorted by score (highest first).
             Each recommendation includes backend reference, scores, metrics, and rank.
+            Scores are negative error sums where higher (less negative) is better.
 
         Raises:
             ValueError: If circuit is empty or has no operations.
@@ -180,11 +172,11 @@ class BackendSelector:
             >>> # Rank all backends
             >>> ranked = selector.rank_backends(circuit)
             >>> for rec in ranked[:5]:
-            ...     print(f"{rec.rank}. {rec.backend.name}: {rec.score_data.score:.2f}")
+            ...     error_pct = -rec.score_data.score * 100
+            ...     print(f"#{rec.rank}. {rec.backend.name}: {error_pct:.2f}% error")
             >>>
-            >>> # Get top 3 with custom weights
-            >>> weights = ScoringWeights(gate_fidelity_weight=3.0)
-            >>> top3 = selector.rank_backends(circuit, weights=weights, top_n=3)
+            >>> # Get top 3 only
+            >>> top3 = selector.rank_backends(circuit, top_n=3)
         """
         if circuit.num_qubits == 0:
             raise ValueError("Circuit must have at least one qubit")
@@ -192,11 +184,8 @@ class BackendSelector:
         if len(circuit.data) == 0:
             raise ValueError("Circuit has no operations")
 
-        if weights is None:
-            weights = ScoringWeights()
-
         # Score backends in parallel for performance
-        recommendations = self._score_backends_parallel(circuit, weights)
+        recommendations = self._score_backends_parallel(circuit)
 
         # Sort by score (descending)
         recommendations.sort(key=lambda r: r.score_data.score, reverse=True)
@@ -227,7 +216,6 @@ class BackendSelector:
     def _score_backends_parallel(
         self,
         circuit: QuantumCircuit,
-        weights: ScoringWeights,
     ) -> list[BackendRecommendation]:
         """
         Score backends in parallel using ThreadPoolExecutor.
@@ -238,7 +226,6 @@ class BackendSelector:
 
         Args:
             circuit: The quantum circuit to score against.
-            weights: Scoring weights to apply.
 
         Returns:
             List of BackendRecommendation objects (unranked).
@@ -251,7 +238,7 @@ class BackendSelector:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all scoring tasks
             future_to_backend = {
-                executor.submit(self._score_single_backend, backend, circuit, weights): backend
+                executor.submit(self._score_single_backend, backend, circuit): backend
                 for backend in self.backends
             }
 
@@ -271,7 +258,6 @@ class BackendSelector:
         self,
         backend: BackendV2,
         circuit: QuantumCircuit,
-        weights: ScoringWeights,
     ) -> BackendRecommendation:
         """
         Score a single backend for the circuit.
@@ -282,7 +268,6 @@ class BackendSelector:
         Args:
             backend: The backend to score.
             circuit: The circuit to score against.
-            weights: Scoring weights to apply.
 
         Returns:
             BackendRecommendation for this backend.

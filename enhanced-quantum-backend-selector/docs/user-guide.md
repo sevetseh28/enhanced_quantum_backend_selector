@@ -4,12 +4,12 @@ This guide covers all features of the Enhanced Quantum Backend Selector and how 
 
 ## Overview
 
-The library provides intelligent backend selection through multi-criteria analysis. Instead of simply choosing the least busy backend, it considers:
+The library provides intelligent backend selection through **transpilation-based error analysis**. Instead of simply choosing the least busy backend or using generic backend metrics, it:
 
-1. **Gate Fidelity** - Quality of quantum operations
-2. **Connectivity** - Topology match with circuit requirements
-3. **Coherence** - T1/T2 times relative to circuit depth
-4. **Availability** - Queue depth and operational status
+1. **Transpiles** your circuit to each backend's native gate set
+2. **Calculates** the total expected error from all qubits and gates used
+3. **Averages** over 3 independent transpilation runs for stability
+4. **Ranks** backends by their actual expected error for your specific circuit
 
 ## Basic Usage
 
@@ -96,31 +96,6 @@ Compatible: True
   • Total error on 5 qubits: 2.341234%
   • Used qubits: [0, 1, 14, 15, 18]
   • Average score over 3 transpilation runs: -0.023412
-```
-
-## Scoring Weights (Future Feature)
-
-The `ScoringWeights` class is available for API compatibility but **not currently used** in the transpilation-based scoring system.
-
-The current implementation:
-- Transpiles circuits to each backend
-- Calculates total error from the transpiled circuit
-- Returns negative error sum as the score
-
-Future versions may incorporate weighted multi-criteria scoring alongside transpilation-based scoring. The `weights` parameter is accepted but has no effect on the current scoring calculation.
-
-```python
-from enhanced_quantum_backend_selector import ScoringWeights
-
-# Available for API compatibility, but not used in scoring
-weights = ScoringWeights(
-    gate_fidelity_weight=1.5,
-    connectivity_weight=1.0,
-    coherence_weight=0.8,
-    queue_weight=0.4,
-)
-
-rec = selector.select_backend(qc, weights=weights)  # weights parameter accepted but ignored
 ```
 
 ## Advanced Features
@@ -257,20 +232,16 @@ for reason in rec.score_data.reasons:
     print(f"  • {reason}")
 ```
 
-### 4. Compare Multiple Strategies
+### 4. Compare Multiple Backends
 
-Test different weight configurations:
+Compare top-ranked backends:
 
 ```python
-strategies = {
-    "Quality": quality_weights,
-    "Speed": speed_weights,
-    "Balanced": ScoringWeights(),  # defaults
-}
+top_5 = selector.rank_backends(qc, top_n=5)
 
-for name, weights in strategies.items():
-    rec = selector.select_backend(qc, weights=weights)
-    print(f"{name}: {rec.backend.name} ({rec.score_data.score:.3f})")
+for rec in top_5:
+    error_pct = -rec.score_data.score * 100
+    print(f"#{rec.rank}: {rec.backend.name} - Error: {error_pct:.2f}%")
 ```
 
 ### 5. Monitor Backend Status
@@ -292,28 +263,26 @@ if not rec.metrics.operational:
 ### Production Pipeline
 
 ```python
-from enhanced_quantum_backend_selector import BackendSelector, ScoringWeights
+from enhanced_quantum_backend_selector import BackendSelector
 
 def select_production_backend(circuit, backends):
     """Select backend for production workload."""
     selector = BackendSelector(backends)
     
-    # Balanced weights with quality preference
-    weights = ScoringWeights(
-        gate_fidelity_weight=1.5,
-        connectivity_weight=1.2,
-        coherence_weight=1.0,
-        queue_weight=0.6,
-    )
-    
     try:
         rec = selector.select_backend(
             circuit,
-            weights=weights,
             require_compatible=True,
-            min_score=0.4,
         )
-        return rec.backend
+        
+        # Check if error rate is acceptable
+        expected_error = -rec.score_data.score
+        if expected_error < 0.10:  # Less than 10% error
+            return rec.backend
+        else:
+            print(f"Warning: Best backend has {expected_error*100:.1f}% error")
+            return rec.backend
+            
     except ValueError:
         # Fallback to least busy
         return least_busy(backends)
@@ -326,20 +295,13 @@ def select_research_backend(circuit, backends):
     """Select highest quality backend for research."""
     selector = BackendSelector(backends)
     
-    # Maximum quality
-    weights = ScoringWeights(
-        gate_fidelity_weight=2.0,
-        connectivity_weight=1.5,
-        coherence_weight=1.8,
-        queue_weight=0.1,
-    )
-    
-    rankings = selector.rank_backends(circuit, weights=weights)
+    rankings = selector.rank_backends(circuit, top_n=3)
     
     # Report top 3 for comparison
     print("Top 3 backends for research:")
-    for rec in rankings[:3]:
-        print(f"  {rec.rank}. {rec.backend.name}: {rec.score_data.score:.3f}")
+    for rec in rankings:
+        error_pct = -rec.score_data.score * 100
+        print(f"  #{rec.rank}. {rec.backend.name}: {rec.score_data.score:.4f} ({error_pct:.2f}% error)")
     
     return rankings[0].backend
 ```
@@ -347,24 +309,18 @@ def select_research_backend(circuit, backends):
 ### Batch Job Optimization
 
 ```python
-def select_backends_for_batch(circuits, backends, strategy="balanced"):
+def select_backends_for_batch(circuits, backends):
     """Select optimal backends for multiple circuits."""
     selector = BackendSelector(backends)
     
-    strategies = {
-        "quality": ScoringWeights(2.0, 1.5, 1.5, 0.2),
-        "speed": ScoringWeights(0.5, 0.8, 0.5, 3.0),
-        "balanced": ScoringWeights(),
-    }
-    
-    weights = strategies[strategy]
     selections = {}
     
     for i, circuit in enumerate(circuits):
-        rec = selector.select_backend(circuit, weights=weights)
+        rec = selector.select_backend(circuit)
         selections[f"circuit_{i}"] = {
             "backend": rec.backend.name,
             "score": rec.score_data.score,
+            "error_pct": -rec.score_data.score * 100,
             "rank": rec.rank,
         }
     
