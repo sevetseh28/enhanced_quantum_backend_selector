@@ -7,7 +7,7 @@ This module provides tools for analyzing quantum backends and extracting metrics
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
-from enhanced_quantum_backend_selector.exploration.circuit_scorer import CircuitScorer
+from enhanced_quantum_backend_selector.circuit_scorer import CircuitScorer
 from enhanced_quantum_backend_selector.models import BackendMetrics, CircuitScore
 
 
@@ -80,8 +80,8 @@ class BackendAnalyzer:
                 metrics.connectivity_ratio = len(edges) / max_edges if max_edges > 0 else 0
 
             # Calculate average qubit degree
-            degrees = {}
-            for q0, q1 in edges:
+            degrees: dict[int, int] = {}
+            for q0, _q1 in edges:
                 degrees[q0] = degrees.get(q0, 0) + 1
             metrics.avg_degree = sum(degrees.values()) / len(degrees) if degrees else 0
 
@@ -90,7 +90,7 @@ class BackendAnalyzer:
             status = self.backend.status()
             metrics.operational = status.operational
             metrics.pending_jobs = status.pending_jobs
-        except:
+        except Exception:
             pass  # Keep default None values
 
         self._metrics = metrics
@@ -159,7 +159,7 @@ class BackendAnalyzer:
         scorer = CircuitScorer(self.backend, metrics)
         return scorer.score_circuit(circuit)
 
-    def print_summary(self):
+    def print_summary(self) -> None:
         """Print a formatted summary of backend metrics"""
         metrics = self.extract_metrics()
 
@@ -177,24 +177,31 @@ class BackendAnalyzer:
         if metrics.avg_1q_error is not None:
             print("\nSingle-Qubit Gate Errors:")
             print(f"  Average: {metrics.avg_1q_error*100:.4f}%")
-            print(f"  Range: {metrics.min_1q_error*100:.4f}% - {metrics.max_1q_error*100:.4f}%")
+            if metrics.min_1q_error is not None and metrics.max_1q_error is not None:
+                print(f"  Range: {metrics.min_1q_error*100:.4f}% - {metrics.max_1q_error*100:.4f}%")
 
         if metrics.avg_2q_error is not None:
             print("\nTwo-Qubit Gate Errors:")
             print(f"  Average: {metrics.avg_2q_error*100:.4f}%")
-            print(f"  Range: {metrics.min_2q_error*100:.4f}% - {metrics.max_2q_error*100:.4f}%")
+            if metrics.min_2q_error is not None and metrics.max_2q_error is not None:
+                print(f"  Range: {metrics.min_2q_error*100:.4f}% - {metrics.max_2q_error*100:.4f}%")
 
         if metrics.avg_readout_error is not None:
             print("\nReadout Errors:")
             print(f"  Average: {metrics.avg_readout_error*100:.3f}%")
-            print(f"  Max: {metrics.max_readout_error*100:.3f}%")
+            if metrics.max_readout_error is not None:
+                print(f"  Max: {metrics.max_readout_error*100:.3f}%")
 
         if metrics.avg_t1 is not None:
             print("\nCoherence Times:")
-            print(
-                f"  T1: {metrics.avg_t1*1e6:.2f}μs (range: {metrics.min_t1*1e6:.2f} - {metrics.max_t1*1e6:.2f}μs)"
-            )
-            if metrics.avg_t2:
+            if metrics.min_t1 is not None and metrics.max_t1 is not None:
+                print(
+                    f"  T1: {metrics.avg_t1*1e6:.2f}μs "
+                    f"(range: {metrics.min_t1*1e6:.2f} - {metrics.max_t1*1e6:.2f}μs)"
+                )
+            else:
+                print(f"  T1: {metrics.avg_t1*1e6:.2f}μs")
+            if metrics.avg_t2 and metrics.min_t2:
                 print(f"  T2: {metrics.avg_t2*1e6:.2f}μs (min: {metrics.min_t2*1e6:.2f}μs)")
 
         if metrics.num_edges is not None:

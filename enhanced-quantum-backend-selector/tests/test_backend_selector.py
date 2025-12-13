@@ -9,8 +9,8 @@ from qiskit import QuantumCircuit
 from qiskit_aer import AerSimulator
 
 from enhanced_quantum_backend_selector import (
-    BackendSelector,
     BackendRecommendation,
+    BackendSelector,
     ScoringWeights,
 )
 

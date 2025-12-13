@@ -12,8 +12,8 @@ from enhanced_quantum_backend_selector import BackendSelector
 from tests.fixtures.canonical_circuits import (
     create_ghz_circuit,
     create_qft_circuit,
-    create_vqe_ansatz,
     create_random_circuit,
+    create_vqe_ansatz,
 )
 
 

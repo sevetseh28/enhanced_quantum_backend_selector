@@ -9,6 +9,7 @@ This example demonstrates:
 
 from qiskit import QuantumCircuit
 from qiskit.providers.fake_provider import GenericBackendV2
+
 from enhanced_quantum_backend_selector import BackendSelector
 
 
@@ -54,28 +55,37 @@ def main() -> None:
     print("Step 4: Selecting best backend for circuit...")
     try:
         recommendation = selector.select_backend(qc)
-        
+
         print(f"\n✓ Recommended Backend: {recommendation.backend.name}")
         print(f"  Rank: #{recommendation.rank}")
         print(f"  Overall Score: {recommendation.score_data.score:.3f}")
         print(f"  Compatible: {recommendation.score_data.compatible}")
         print()
-        
+
         print("  Backend Metrics:")
         print(f"    Num Qubits:     {recommendation.metrics.num_qubits}")
         print(f"    Connectivity:   {recommendation.metrics.num_edges} edges")
-        print(f"    Avg T1 Time:    {recommendation.metrics.avg_t1:.2e} seconds" if recommendation.metrics.avg_t1 else "    Avg T1 Time:    N/A")
-        print(f"    Avg T2 Time:    {recommendation.metrics.avg_t2:.2e} seconds" if recommendation.metrics.avg_t2 else "    Avg T2 Time:    N/A")
-        print(f"    Readout Error:  {recommendation.metrics.avg_readout_error:.4f}" if recommendation.metrics.avg_readout_error else "    Readout Error:  N/A")
+        if recommendation.metrics.avg_t1:
+            print(f"    Avg T1 Time:    {recommendation.metrics.avg_t1:.2e} seconds")
+        else:
+            print("    Avg T1 Time:    N/A")
+        if recommendation.metrics.avg_t2:
+            print(f"    Avg T2 Time:    {recommendation.metrics.avg_t2:.2e} seconds")
+        else:
+            print("    Avg T2 Time:    N/A")
+        if recommendation.metrics.avg_readout_error:
+            print(f"    Readout Error:  {recommendation.metrics.avg_readout_error:.4f}")
+        else:
+            print("    Readout Error:  N/A")
         print(f"    Operational:    {recommendation.metrics.operational}")
         print()
-        
+
         if recommendation.score_data.reasons:
             print("  Selection Reasons:")
             for reason in recommendation.score_data.reasons:
                 print(f"    • {reason}")
         print()
-        
+
     except ValueError as e:
         print(f"✗ Error: {e}")
         print()
@@ -83,7 +93,7 @@ def main() -> None:
     # Step 5: Show alternative approach - get top 3 rankings
     print("Step 5: Getting top 3 backend rankings...")
     rankings = selector.rank_backends(qc, top_n=3)
-    
+
     print(f"\nTop {len(rankings)} Backends:")
     print("-" * 70)
     for rec in rankings:

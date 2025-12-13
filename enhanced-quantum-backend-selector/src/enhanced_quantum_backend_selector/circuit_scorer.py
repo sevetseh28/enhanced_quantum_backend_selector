@@ -75,7 +75,6 @@ class CircuitScorer:
             return
 
         total_error = 0.0
-        error_breakdown = []
 
         # Sum single-qubit gate errors for used qubits
         for op_name in self.target.operation_names:
@@ -118,6 +117,4 @@ class CircuitScorer:
         score_data.reasons.append(
             f"Total error on {len(used_qubits)} qubits: {total_error*100:.6f}%"
         )
-        score_data.reasons.append(
-            f"Used qubits: {sorted(used_qubits)}"
-        )
+        score_data.reasons.append(f"Used qubits: {sorted(used_qubits)}")

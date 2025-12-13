@@ -9,14 +9,17 @@ from __future__ import annotations
 
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple
 
 from qiskit import transpile
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
-from enhanced_quantum_backend_selector.exploration.backend_analyzer import BackendAnalyzer
-from enhanced_quantum_backend_selector.models import BackendMetrics, BackendRecommendation, CircuitScore
+from enhanced_quantum_backend_selector.backend_analyzer import BackendAnalyzer
+from enhanced_quantum_backend_selector.models import (
+    BackendMetrics,
+    BackendRecommendation,
+    CircuitScore,
+)
 from enhanced_quantum_backend_selector.scoring_weights import ScoringWeights
 
 
@@ -60,7 +63,7 @@ class BackendSelector:
     # Cache TTL: 1 hour (backend calibrations change slowly)
     CACHE_TTL_SECONDS: float = 3600.0
 
-    def __init__(self, backends: List[BackendV2]) -> None:
+    def __init__(self, backends: list[BackendV2]) -> None:
         """
         Initialize the backend selector.
 
@@ -74,15 +77,15 @@ class BackendSelector:
             raise ValueError("backends list cannot be empty")
 
         self.backends = backends
-        self._metrics_cache: Dict[str, Tuple[BackendMetrics, float]] = {}
-        self._analyzer_cache: Dict[str, BackendAnalyzer] = {}
+        self._metrics_cache: dict[str, tuple[BackendMetrics, float]] = {}
+        self._analyzer_cache: dict[str, BackendAnalyzer] = {}
 
     def select_backend(
         self,
         circuit: QuantumCircuit,
-        weights: Optional[ScoringWeights] = None,
+        weights: ScoringWeights | None = None,
         require_compatible: bool = True,
-        min_score: Optional[float] = None,
+        min_score: float | None = None,
     ) -> BackendRecommendation:
         """
         Select the best backend for a quantum circuit.
@@ -130,10 +133,11 @@ class BackendSelector:
         if require_compatible:
             ranked = [r for r in ranked if r.score_data.compatible]
             if not ranked:
+                gates = {instr.operation.name for instr in circuit.data}
                 raise RuntimeError(
                     "No compatible backends found. "
                     f"Circuit requires {circuit.num_qubits} qubits and "
-                    f"uses gates: {set(instr.operation.name for instr in circuit.data)}"
+                    f"uses gates: {gates}"
                 )
 
         # Filter by minimum score if specified
@@ -150,9 +154,9 @@ class BackendSelector:
     def rank_backends(
         self,
         circuit: QuantumCircuit,
-        weights: Optional[ScoringWeights] = None,
-        top_n: Optional[int] = None,
-    ) -> List[BackendRecommendation]:
+        weights: ScoringWeights | None = None,
+        top_n: int | None = None,
+    ) -> list[BackendRecommendation]:
         """
         Rank all backends for a quantum circuit.
 
@@ -224,7 +228,7 @@ class BackendSelector:
         self,
         circuit: QuantumCircuit,
         weights: ScoringWeights,
-    ) -> List[BackendRecommendation]:
+    ) -> list[BackendRecommendation]:
         """
         Score backends in parallel using ThreadPoolExecutor.
 
@@ -239,7 +243,7 @@ class BackendSelector:
         Returns:
             List of BackendRecommendation objects (unranked).
         """
-        recommendations: List[BackendRecommendation] = []
+        recommendations: list[BackendRecommendation] = []
 
         # Use ThreadPoolExecutor for parallel scoring (max 10 workers)
         max_workers = min(10, len(self.backends))
@@ -292,35 +296,28 @@ class BackendSelector:
         # Transpile and score 3 times, then average
         scores = []
         all_reasons = []
-        
+
         for run_num in range(3):
             # Transpile the circuit to this backend
             # Each run may produce different results due to stochastic nature
-            transpiled = transpile(
-                circuit, 
-                backend=backend, 
-                optimization_level=2
-            )
-            
+            transpiled = transpile(circuit, backend=backend, optimization_level=2)
+
             # Score the transpiled circuit
             score_data = analyzer.score_for_circuit(transpiled)
             scores.append(score_data.score)
-            
+
             # Collect reasons from first run only to avoid duplication
             if run_num == 0:
                 all_reasons = score_data.reasons.copy()
-        
+
         # Calculate average score
         avg_score = sum(scores) / len(scores)
-        
+
         # Create averaged score data
-        from enhanced_quantum_backend_selector.models import CircuitScore
         averaged_score_data = CircuitScore(
             backend=backend.name,
             compatible=True,  # If transpilation succeeded, it's compatible
-            reasons=all_reasons + [
-                f"Average score over 3 transpilation runs: {avg_score:.6f}"
-            ],
+            reasons=all_reasons + [f"Average score over 3 transpilation runs: {avg_score:.6f}"],
             score=avg_score,
         )
 
