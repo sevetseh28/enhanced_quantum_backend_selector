@@ -5,6 +5,7 @@ description = "Intelligent quantum backend selection for Qiskit circuits"
 authors = [
     {name = "sevetseh28", email = "hernaner28@gmail.com"}
 ]
+readme = "../README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.12"
 keywords = ["quantum", "qiskit", "backend", "optimization", "quantum-computing"]
