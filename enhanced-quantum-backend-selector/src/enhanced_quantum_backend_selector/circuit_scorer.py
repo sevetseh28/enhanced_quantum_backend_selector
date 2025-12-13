@@ -71,9 +71,7 @@ class CircuitScorer:
                 used_qubits.add(circuit.find_bit(qubit).index)
         return used_qubits
 
-    def _calculate_total_error(
-        self, circuit: QuantumCircuit, used_qubits: set[int]
-    ) -> float:
+    def _calculate_total_error(self, circuit: QuantumCircuit, used_qubits: set[int]) -> float:
         """
         Calculate total error from qubits used in the circuit.
 
