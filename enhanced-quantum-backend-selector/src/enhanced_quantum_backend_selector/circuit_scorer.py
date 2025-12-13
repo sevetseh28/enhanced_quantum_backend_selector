@@ -41,38 +41,54 @@ class CircuitScorer:
         Returns:
             CircuitScore containing compatibility and scoring information
         """
+        # Get used qubits and calculate total error
+        used_qubits = self._get_used_qubits(circuit)
+        total_error = self._calculate_total_error(circuit, used_qubits)
+
+        # Create score data with results
         score_data = CircuitScore(
             backend=self.backend.name,
             compatible=True,
-            reasons=[],
-            score=0.0,  # Start with zero, will be set to total error
+            reasons=self._build_score_reasons(used_qubits, total_error),
+            score=-total_error,  # Negative so higher score = lower error
         )
-
-        # Calculate total error from qubits used in the circuit
-        self._calculate_qubit_errors(circuit, score_data)
 
         return score_data
 
-    def _calculate_qubit_errors(self, circuit: QuantumCircuit, score_data: CircuitScore) -> None:
+    def _get_used_qubits(self, circuit: QuantumCircuit) -> set[int]:
         """
-        Calculate total error from qubits used in the circuit.
-
-        Sums up single-qubit, two-qubit, and readout errors for all qubits
-        that are used in the circuit. Lower total error = better backend.
+        Extract the set of physical qubits used in the circuit.
 
         Args:
             circuit: The quantum circuit (should be transpiled to backend)
-            score_data: Score data to update
+
+        Returns:
+            Set of qubit indices used in the circuit
         """
-        # Get the set of qubits used in the circuit
         used_qubits = set()
         for instruction in circuit.data:
             for qubit in instruction.qubits:
                 used_qubits.add(circuit.find_bit(qubit).index)
+        return used_qubits
 
+    def _calculate_total_error(
+        self, circuit: QuantumCircuit, used_qubits: set[int]
+    ) -> float:
+        """
+        Calculate total error from qubits used in the circuit.
+
+        Sums up single-qubit, two-qubit, and readout errors for all qubits
+        that are used in the circuit.
+
+        Args:
+            circuit: The quantum circuit (should be transpiled to backend)
+            used_qubits: Set of qubit indices used in the circuit
+
+        Returns:
+            Total error rate (sum of all error sources)
+        """
         if not used_qubits:
-            score_data.reasons.append("No qubits used in circuit")
-            return
+            return 0.0
 
         total_error = 0.0
 
@@ -111,10 +127,23 @@ class CircuitScorer:
                         if props and props.error is not None:
                             total_error += props.error
 
-        # Store the total error as the score (lower is better)
-        # We use negative score so higher score = lower error
-        score_data.score = -total_error
-        score_data.reasons.append(
-            f"Total error on {len(used_qubits)} qubits: {total_error*100:.6f}%"
-        )
-        score_data.reasons.append(f"Used qubits: {sorted(used_qubits)}")
+        return total_error
+
+    def _build_score_reasons(self, used_qubits: set[int], total_error: float) -> list[str]:
+        """
+        Build human-readable reasons explaining the score.
+
+        Args:
+            used_qubits: Set of qubit indices used in the circuit
+            total_error: Total error rate calculated
+
+        Returns:
+            List of reason strings
+        """
+        if not used_qubits:
+            return ["No qubits used in circuit"]
+
+        return [
+            f"Total error on {len(used_qubits)} qubits: {total_error*100:.6f}%",
+            f"Used qubits: {sorted(used_qubits)}",
+        ]
