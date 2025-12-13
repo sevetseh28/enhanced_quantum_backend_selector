@@ -36,6 +36,7 @@ theme:
 plugins:
   - search:
       separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - autorefs
   - mkdocstrings:
       handlers:
         python:
@@ -76,23 +77,13 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
-  - User Guide:
-      - Overview: user-guide.md
-      - Scoring Weights: user-guide/scoring-weights.md
-      - Backend Selection: user-guide/backend-selection.md
-      - Best Practices: user-guide/best-practices.md
-  - Examples:
-      - Overview: examples.md
-      - Basic Usage: examples/basic-usage.md
-      - Advanced Usage: examples/advanced-usage.md
-  - API Reference:
-      - Overview: api-reference.md
-      - BackendSelector: api/backend-selector.md
-      - Data Models: api/data-models.md
-      - Scoring Weights: api/scoring-weights.md
+  - User Guide: user-guide.md
+  - Examples: examples.md
+  - API Reference: api-reference.md
   - Architecture: architecture.md
   - Contributing: contributing.md
   - Automated Releases: automated-release.md
+  - Release Process: release-process.md
   - Changelog: changelog.md
 
 extra:

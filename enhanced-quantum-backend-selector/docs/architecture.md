@@ -4,7 +4,7 @@ This document describes the design and implementation of the Enhanced Quantum Ba
 
 ## Overview
 
-The library implements a multi-criteria decision system for quantum backend selection, using a weighted scoring approach across four key quality factors.
+The library implements an intelligent backend selection system using **transpilation-based error estimation**. Rather than using generic backend metrics, it transpiles circuits to each backend and calculates the actual expected error rates based on the specific qubits and gates that will be used.
 
 ## System Architecture
 
@@ -73,35 +73,43 @@ The library implements a multi-criteria decision system for quantum backend sele
 
 ### 3. CircuitScorer
 
-**Responsibility**: Score backends against circuit requirements
+**Responsibility**: Score backends using transpilation-based error estimation
 
-**Scoring Components**:
+**Scoring Method**:
 
-1. **Gate Fidelity Score** (0-1):
-   - Average of 1-qubit, 2-qubit, and readout fidelities
-   - Normalized by error rates: `1 - error_rate`
+1. **Transpile circuit** to backend with optimization level 2
+2. **Identify used qubits** from transpiled circuit
+3. **Sum all error sources** for those qubits:
+   - Single-qubit gate errors
+   - Two-qubit gate errors (for all gate types)
+   - Readout errors
+4. **Return negative error sum**: `score = -total_error`
 
-2. **Connectivity Score** (0-1):
-   - Based on coupling map size
-   - Linear normalization: `edges / max_edges`
+**Multiple Runs**:
+- Each backend is scored 3 times with independent transpilations
+- Scores are averaged to account for layout variation
+- Provides more stable and representative scoring
 
-3. **Coherence Score** (0-1):
-   - T1 and T2 times relative to circuit depth
-   - Formula: `exp(-circuit_time / coherence_time)`
-
-4. **Queue Score** (0-1):
-   - Inverse of pending jobs
-   - Formula: `1 / (1 + pending_jobs)`
-
-**Composite Score**:
+**Score Formula**:
 ```python
-total_score = (
-    fidelity_score * fidelity_weight +
-    connectivity_score * connectivity_weight +
-    coherence_score * coherence_weight +
-    queue_score * queue_weight
-)
+# For each transpilation run:
+total_error = sum([
+    single_qubit_errors,    # For all used qubits
+    two_qubit_errors,       # For all used qubit pairs
+    readout_errors,         # For all used qubits
+])
+
+score = -total_error
+
+# Final score is average over 3 runs:
+final_score = mean([score_run1, score_run2, score_run3])
 ```
+
+**Advantages**:
+- **Realistic**: Based on actual transpiled circuit, not generic metrics
+- **Accurate**: Uses the specific qubits and gates that will execute
+- **Comprehensive**: Includes all error sources in one metric
+- **Stable**: Averaging reduces variation from layout randomness
 
 ### 4. Data Models
 
@@ -110,12 +118,22 @@ total_score = (
 @dataclass
 class BackendRecommendation:
     backend: BackendV2           # The recommended backend
-    score_data: CircuitScore     # Detailed scoring info
+    score_data: CircuitScore     # Scoring results
     metrics: BackendMetrics      # Backend specifications
-    rank: int                    # Position in rankings
+    rank: int                    # Position in rankings (1=best)
 ```
 
-**ScoringWeights**:
+**CircuitScore**:
+```python
+@dataclass
+class CircuitScore:
+    backend: str                 # Backend name
+    compatible: bool             # Circuit compatibility
+    reasons: list[str]           # Human-readable explanations
+    score: float                 # Negative error sum (higher is better)
+```
+
+**ScoringWeights** (API compatibility only):
 ```python
 @dataclass
 class ScoringWeights:
@@ -124,6 +142,8 @@ class ScoringWeights:
     coherence_weight: float = 0.8
     queue_weight: float = 0.4
 ```
+
+**Note**: Current implementation uses pure transpilation-based scoring (negative error sum). ScoringWeights are available for API compatibility but **not used in scoring calculation**. The transpilation-based approach directly measures circuit quality on each backend without needing to weight different criteria.
 
 ## Data Flow
 
@@ -172,17 +192,27 @@ For each backend:
        └─▶ Store in cache (1h TTL)
    │
    ▼
-2. Calculate component scores:
-   ├─▶ Gate fidelity (from error rates)
-   ├─▶ Connectivity (from coupling map)
-   ├─▶ Coherence (from T1/T2 times)
-   └─▶ Queue time (from pending jobs)
+2. Run 3 transpilation passes:
+   │
+   For each run (i = 1, 2, 3):
+   ├─▶ Transpile circuit to backend (optimization_level=2)
+   ├─▶ Identify used qubits in transpiled circuit
+   ├─▶ Sum error rates:
+   │   ├─▶ Single-qubit gate errors (all used qubits)
+   │   ├─▶ Two-qubit gate errors (all used qubit pairs)
+   │   └─▶ Readout errors (all used qubits)
+   └─▶ score_i = -total_error
    │
    ▼
-3. Apply weights and sum
+3. Average the 3 scores:
+   final_score = mean([score_1, score_2, score_3])
    │
    ▼
-4. Return CircuitScore object
+4. Return CircuitScore object:
+   ├─▶ backend name
+   ├─▶ compatibility flag
+   ├─▶ final_score (negative error sum)
+   └─▶ human-readable reasons
 ```
 
 ## Performance Optimizations
@@ -208,15 +238,28 @@ For each backend:
 
 ## Design Patterns
 
-### 1. Strategy Pattern
+### 1. Transpilation-Based Scoring
 
-ScoringWeights allows runtime configuration of scoring strategy:
+The current implementation uses direct transpilation to measure circuit quality:
 
 ```python
-# Different strategies for different use cases
-quality_first = ScoringWeights(2.0, 1.5, 1.5, 0.2)
-speed_first = ScoringWeights(0.5, 0.8, 0.5, 3.0)
+# Circuit is transpiled to each backend with optimization_level=2
+# Score is calculated as negative sum of all error rates
+score = -total_error  # Higher (less negative) is better
 ```
+
+**Rationale**: Transpilation reveals the actual qubits and gates that will be used, providing more accurate quality estimates than generic backend metrics.
+
+### 2. Multiple Run Averaging
+
+Each backend is scored 3 times with independent transpilations:
+
+```python
+scores = [transpile_and_score() for _ in range(3)]
+final_score = mean(scores)
+```
+
+**Rationale**: Transpilation can produce different layouts. Averaging provides stability and reduces sensitivity to single unlucky transpilations.
 
 ### 2. Builder Pattern
 

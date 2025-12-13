@@ -72,10 +72,10 @@ print(f"Rank: #{recommendation.rank}")
 
 [View full source code →](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/examples/advanced_usage.py)
 
-This example shows advanced features and strategies:
+This example shows advanced features:
 
 ```python
-from enhanced_quantum_backend_selector import BackendSelector, ScoringWeights
+from enhanced_quantum_backend_selector import BackendSelector
 
 # Create more complex circuit
 qc = QuantumCircuit(5)
@@ -89,34 +89,28 @@ qc.measure_all()
 
 selector = BackendSelector(backends)
 
-# Strategy 1: Quality-First
-quality_weights = ScoringWeights(
-    gate_fidelity_weight=2.0,
-    connectivity_weight=1.5,
-    coherence_weight=1.5,
-    queue_weight=0.2,
-)
-quality_rec = selector.select_backend(qc, weights=quality_weights)
+# Get top 3 backends
+top_3 = selector.rank_backends(qc, top_n=3)
 
-# Strategy 2: Speed-First
-speed_weights = ScoringWeights(
-    gate_fidelity_weight=0.5,
-    connectivity_weight=0.8,
-    coherence_weight=0.5,
-    queue_weight=3.0,
-)
-speed_rec = selector.select_backend(qc, weights=speed_weights)
+for rec in top_3:
+    print(f"{rec.rank}. {rec.backend.name}")
+    print(f"   Score: {rec.score_data.score:.3f}")  # Negative error sum
+    print(f"   Compatible: {rec.score_data.compatible}")
+    print(f"   Reasons: {rec.score_data.reasons[0]}")
 
-# Compare strategies
-print(f"Quality: {quality_rec.backend.name} ({quality_rec.score_data.score:.3f})")
-print(f"Speed:   {speed_rec.backend.name} ({speed_rec.score_data.score:.3f})")
+# Set minimum quality threshold
+# Since scores are negative, -0.1 means max 10% total error
+try:
+    high_quality = selector.select_backend(qc, min_score=-0.05)  # Max 5% error
+    print(f"High-quality backend: {high_quality.backend.name}")
+except ValueError:
+    print("No backends met the quality threshold")
 ```
 
 **Key Concepts:**
-- Creating custom `ScoringWeights`
-- Comparing different optimization strategies
 - Using `rank_backends()` for full rankings
-- Minimum score filtering
+- Understanding negative error-based scores
+- Minimum score filtering with negative thresholds
 - Compatibility checking
 
 ## Real-World Scenarios
@@ -141,18 +135,13 @@ def create_vqe_circuit(num_qubits=4):
 
 qc = create_vqe_circuit(4)
 
-# Select backend prioritizing fidelity and coherence
+# Select backend - transpilation reveals best backend for this circuit
 selector = BackendSelector(backends)
-vqe_weights = ScoringWeights(
-    gate_fidelity_weight=2.5,    # Critical for VQE
-    connectivity_weight=1.0,
-    coherence_weight=2.0,         # Long coherence needed
-    queue_weight=0.3,
-)
+rec = selector.select_backend(qc)
 
-rec = selector.select_backend(qc, weights=vqe_weights)
 print(f"Best VQE backend: {rec.backend.name}")
-```
+print(f"Expected error: {-rec.score_data.score:.4f}")  # Convert negative score to error
+print(f"Details: {rec.score_data.reasons[0]}")
 
 ### Scenario 2: QAOA for Graph Problems
 
@@ -179,17 +168,11 @@ def create_qaoa_circuit(num_qubits=6):
 
 qc = create_qaoa_circuit(6)
 
-# Prioritize connectivity
-qaoa_weights = ScoringWeights(
-    gate_fidelity_weight=1.5,
-    connectivity_weight=2.5,      # Critical for QAOA
-    coherence_weight=1.2,
-    queue_weight=0.5,
-)
-
-rec = selector.select_backend(qc, weights=qaoa_weights)
+# Transpilation finds backends with topology matching the circuit
+rec = selector.select_backend(qc)
 print(f"Best QAOA backend: {rec.backend.name}")
-print(f"Coupling edges: {len(rec.metrics.coupling_map)}")
+print(f"Score: {rec.score_data.score:.3f}")
+print(f"Connectivity: {rec.metrics.num_edges} edges")
 ```
 
 ### Scenario 3: Rapid Prototyping
@@ -203,8 +186,8 @@ qc.h(0)
 qc.cx(0, 1)
 qc.measure_all()
 
-# Prioritize speed
-prototype_weights = ScoringWeights(
+# Use fastest available backend
+rec = selector.select_backend(qc)
     gate_fidelity_weight=0.3,
     connectivity_weight=0.5,
     coherence_weight=0.3,
@@ -385,4 +368,4 @@ analyze_backend(rec)
 
 - [User Guide](user-guide.md) - Learn about all features in detail
 - [API Reference](api-reference.md) - Complete API documentation
-- [Best Practices](user-guide/best-practices.md) - Production tips and patterns
+- [Architecture](architecture.md) - System design and patterns

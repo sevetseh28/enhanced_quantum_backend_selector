@@ -44,119 +44,83 @@ backend = recommendation.backend
 
 ### Overall Score
 
-The overall score is a weighted combination of four component scores:
+The score is based on **transpilation-based error estimation**:
 
-```python
-score = (
-    fidelity_score * fidelity_weight +
-    connectivity_score * connectivity_weight +
-    coherence_score * coherence_weight +
-    queue_score * queue_weight
-)
-```
+1. **Circuit is transpiled** to the backend's native gate set with optimization level 2
+2. **Total error is calculated** by summing errors for all qubits used in the transpiled circuit:
+   - Single-qubit gate errors
+   - Two-qubit gate errors
+   - Readout errors
+3. **Score is averaged** over 3 independent transpilation runs
+4. **Score is negative** of the total error: `score = -total_error`
 
-Higher scores indicate better backends for the given circuit.
+**Higher scores are better** (less negative = lower error):
+- Score of `-0.01` is better than `-0.05`
+- Lower error means higher quality execution
 
-### Score Components
+### Why Transpilation-Based?
 
-Each component is normalized to [0, 1]:
+Transpiling the circuit to the backend reveals:
+- Which specific qubits will be used
+- Exact gate decompositions needed
+- Real error rates for the actual execution path
 
-**Gate Fidelity Score** - Based on error rates:
-- Single-qubit gate errors
-- Two-qubit gate errors  
-- Readout errors
+This provides a more accurate quality estimate than generic backend metrics.
 
-**Connectivity Score** - Based on topology match:
-- Number of edges in coupling map
-- Compatibility with circuit connectivity requirements
+### Multiple Transpilation Runs
 
-**Coherence Score** - Based on decoherence times:
-- T1 (relaxation) times
-- T2 (dephasing) times
-- Relative to circuit depth
-
-**Queue Score** - Based on availability:
-- Pending jobs in queue
-- Operational status
+Transpilation can produce different qubit layouts. Running 3 times and averaging:
+- Accounts for layout variation
+- Provides more stable scoring
+- Reduces sensitivity to single unlucky transpilations
 
 ### Interpreting Results
 
 ```python
 rec = selector.select_backend(qc)
 
-print(f"Overall Score: {rec.score_data.score:.3f}")
-print("\nBreakdown:")
-print(f"  Fidelity:     {rec.score_data.gate_fidelity_score:.3f}")
-print(f"  Connectivity: {rec.score_data.connectivity_score:.3f}")
-print(f"  Coherence:    {rec.score_data.coherence_score:.3f}")
-print(f"  Queue:        {rec.score_data.queue_score:.3f}")
+print(f"Backend: {rec.backend.name}")
+print(f"Score: {rec.score_data.score:.3f}")  # Negative error sum
+print(f"Compatible: {rec.score_data.compatible}")
 
 # Human-readable reasons
 for reason in rec.score_data.reasons:
     print(f"  • {reason}")
 ```
 
-## Custom Scoring Weights
+**Example output:**
+```
+Backend: ibm_kyoto
+Score: -0.0234  # Total error ~2.34%
+Compatible: True
+  • Total error on 5 qubits: 2.341234%
+  • Used qubits: [0, 1, 14, 15, 18]
+  • Average score over 3 transpilation runs: -0.023412
+```
 
-Adjust weights based on your priorities:
+## Scoring Weights (Future Feature)
 
-### Default Weights
+The `ScoringWeights` class is available for API compatibility but **not currently used** in the transpilation-based scoring system.
+
+The current implementation:
+- Transpiles circuits to each backend
+- Calculates total error from the transpiled circuit
+- Returns negative error sum as the score
+
+Future versions may incorporate weighted multi-criteria scoring alongside transpilation-based scoring. The `weights` parameter is accepted but has no effect on the current scoring calculation.
 
 ```python
 from enhanced_quantum_backend_selector import ScoringWeights
 
-# These are the defaults
-default_weights = ScoringWeights(
-    gate_fidelity_weight=1.5,   # Highest priority
-    connectivity_weight=1.0,     # High priority
-    coherence_weight=0.8,        # Moderate priority
-    queue_weight=0.4,            # Lower priority
-)
-```
-
-### Quality-First Strategy
-
-Prioritize result quality over execution time:
-
-```python
-quality_weights = ScoringWeights(
-    gate_fidelity_weight=2.0,   # Very high
-    connectivity_weight=1.5,     # High
-    coherence_weight=1.5,        # High
-    queue_weight=0.2,            # Very low - don't care about waiting
+# Available for API compatibility, but not used in scoring
+weights = ScoringWeights(
+    gate_fidelity_weight=1.5,
+    connectivity_weight=1.0,
+    coherence_weight=0.8,
+    queue_weight=0.4,
 )
 
-rec = selector.select_backend(qc, weights=quality_weights)
-```
-
-### Speed-First Strategy
-
-Get results as quickly as possible:
-
-```python
-speed_weights = ScoringWeights(
-    gate_fidelity_weight=0.5,    # Lower
-    connectivity_weight=0.8,     # Moderate
-    coherence_weight=0.5,        # Lower
-    queue_weight=3.0,            # Very high - minimize wait time
-)
-
-rec = selector.select_backend(qc, weights=speed_weights)
-```
-
-### Connectivity-First Strategy
-
-For circuits with complex coupling requirements:
-
-```python
-connectivity_weights = ScoringWeights(
-    gate_fidelity_weight=1.0,
-    connectivity_weight=3.0,     # Very high
-    coherence_weight=1.0,
-    queue_weight=0.5,
-)
-
-rec = selector.select_backend(qc, weights=connectivity_weights)
+rec = selector.select_backend(qc, weights=weights)  # weights parameter accepted but ignored
 ```
 
 ## Advanced Features
@@ -181,12 +145,19 @@ top_3 = selector.rank_backends(qc, top_n=3)
 Require backends to meet a quality threshold:
 
 ```python
+# Since scores are negative errors, use negative thresholds
+# -0.1 means max 10% total error, -0.05 means max 5% error
 try:
-    rec = selector.select_backend(qc, min_score=0.5)
+    rec = selector.select_backend(qc, min_score=-0.1)  # Max 10% error
     print(f"Selected: {rec.backend.name}")
+    print(f"Score: {rec.score_data.score:.3f}")
 except ValueError as e:
     print(f"No backends met minimum score: {e}")
 ```
+
+**Note:** Remember scores are negative. A higher (less negative) score is better:
+- `-0.01` passes `min_score=-0.05` threshold ✓
+- `-0.08` fails `min_score=-0.05` threshold ✗
 
 ### Compatibility Checking
 
@@ -402,7 +373,6 @@ def select_backends_for_batch(circuits, backends, strategy="balanced"):
 
 ## Next Steps
 
-- [Scoring Weights Guide](user-guide/scoring-weights.md) - Deep dive into weight configuration
-- [Backend Selection Guide](user-guide/backend-selection.md) - Advanced selection strategies
-- [Best Practices](user-guide/best-practices.md) - Production tips and patterns
+- [Examples](examples.md) - Practical code examples and use cases
 - [API Reference](api-reference.md) - Complete API documentation
+- [Architecture](architecture.md) - Design and implementation details

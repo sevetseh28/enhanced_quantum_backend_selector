@@ -6,9 +6,9 @@ Complete API documentation for the Enhanced Quantum Backend Selector.
 
 The library provides three main public classes:
 
-- [`BackendSelector`](api/backend-selector.md) - Main API for backend selection
-- [`ScoringWeights`](api/scoring-weights.md) - Configuration for scoring priorities
-- [`BackendRecommendation`](api/data-models.md#backendrecommendation) - Selection results
+- `BackendSelector` - Main API for backend selection
+- `ScoringWeights` - Configuration for scoring priorities (API compatibility only)
+- `BackendRecommendation` - Selection results
 
 ## Quick Reference
 
@@ -27,8 +27,6 @@ selector = BackendSelector(backends: List[BackendV2])
 - `select_backend()` - Select the best backend for a circuit
 - `rank_backends()` - Get ranked list of all backends
 
-[Full documentation →](api/backend-selector.md)
-
 ### ScoringWeights
 
 Configuration for multi-criteria scoring.
@@ -44,7 +42,7 @@ weights = ScoringWeights(
 )
 ```
 
-[Full documentation →](api/scoring-weights.md)
+**Note:** ScoringWeights are available for API compatibility but not currently used in transpilation-based scoring.
 
 ### BackendRecommendation
 
@@ -53,13 +51,30 @@ Result object containing backend selection details.
 ```python
 @dataclass
 class BackendRecommendation:
-    backend: BackendV2
-    score_data: CircuitScore
-    metrics: BackendMetrics
-    rank: int
+    backend: BackendV2          # The recommended backend
+    score_data: CircuitScore    # Scoring results with negative error sum
+    metrics: BackendMetrics     # Backend specifications
+    rank: int                   # Position in rankings (1=best)
 ```
 
-[Full documentation →](api/data-models.md)
+### CircuitScore
+
+Scoring results for a backend.
+
+```python
+@dataclass
+class CircuitScore:
+    backend: str                # Backend name
+    compatible: bool            # Whether backend can run the circuit
+    reasons: list[str]          # Human-readable scoring explanations
+    score: float                # Negative error sum (higher/less negative is better)
+```
+
+**Score Interpretation:**
+- Score is the negative sum of all errors: `score = -total_error`
+- Higher scores are better (less negative = lower error)
+- Example: `-0.01` is better than `-0.05`
+- Calculated from transpiled circuit with 3-run averaging
 
 ## Type Hierarchy
 
@@ -72,15 +87,21 @@ BackendSelector
 BackendRecommendation
 ├── backend: BackendV2
 ├── score_data: CircuitScore
+│   ├── backend: str
+│   ├── compatible: bool
+│   ├── reasons: List[str]
+│   └── score: float (negative error sum, higher is better)
 ├── metrics: BackendMetrics
 └── rank: int
 
-ScoringWeights
+ScoringWeights (API compatibility only - not used in scoring)
 ├── gate_fidelity_weight: float
 ├── connectivity_weight: float
 ├── coherence_weight: float
 └── queue_weight: float
 ```
+
+**Note on Scoring:** The current implementation uses pure transpilation-based scoring where the score is calculated as the negative sum of all error rates from the transpiled circuit. The `ScoringWeights` class is maintained for API compatibility but does not affect score calculations.
 
 ## Module Structure
 
@@ -88,12 +109,10 @@ ScoringWeights
 enhanced_quantum_backend_selector/
 ├── __init__.py                    # Public API exports
 ├── backend_selector.py            # BackendSelector class
+├── backend_analyzer.py            # Internal: Backend analysis
+├── circuit_scorer.py              # Internal: Circuit scoring
 ├── scoring_weights.py             # ScoringWeights class
-├── models.py                      # Data models
-└── exploration/
-    ├── backend_analyzer.py        # Internal: Backend analysis
-    ├── circuit_scorer.py          # Internal: Circuit scoring
-    └── ...                        # Other internal modules
+└── models.py                      # Data models
 ```
 
 ## Public API
@@ -127,12 +146,6 @@ def select_backend(
 ) -> BackendRecommendation:
     ...
 ```
-
-## Detailed Documentation
-
-- [BackendSelector API](api/backend-selector.md)
-- [ScoringWeights API](api/scoring-weights.md)
-- [Data Models API](api/data-models.md)
 
 ## See Also
 
