@@ -228,6 +228,10 @@ class BackendSelector:
         """
         Score backends in parallel using ThreadPoolExecutor.
 
+        Note: If you want to compare backends with/without fractional gates,
+        you should retrieve both versions from IBM Quantum service and include
+        them in the backends list passed to BackendSelector.
+
         Args:
             circuit: The quantum circuit to score against.
             weights: Scoring weights to apply.
@@ -292,7 +296,11 @@ class BackendSelector:
         for run_num in range(3):
             # Transpile the circuit to this backend
             # Each run may produce different results due to stochastic nature
-            transpiled = transpile(circuit, backend=backend, optimization_level=1)
+            transpiled = transpile(
+                circuit, 
+                backend=backend, 
+                optimization_level=2
+            )
             
             # Score the transpiled circuit
             score_data = analyzer.score_for_circuit(transpiled)
@@ -310,7 +318,9 @@ class BackendSelector:
         averaged_score_data = CircuitScore(
             backend=backend.name,
             compatible=True,  # If transpilation succeeded, it's compatible
-            reasons=all_reasons + [f"Average score over 3 transpilation runs: {avg_score:.6f}"],
+            reasons=all_reasons + [
+                f"Average score over 3 transpilation runs: {avg_score:.6f}"
+            ],
             score=avg_score,
         )
 
