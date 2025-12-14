@@ -13,6 +13,9 @@ from enhanced_quantum_backend_selector.models import BackendMetrics, CircuitScor
 class CircuitScorer:
     """Scores backends for specific quantum circuits using multiple criteria"""
 
+    # Operations to skip when calculating gate errors (non-gate operations)
+    SKIP_OPERATIONS = frozenset(["measure", "delay", "reset"])
+
     def __init__(self, backend: BackendV2, metrics: BackendMetrics):
         """
         Initialize the circuit scorer.
@@ -92,7 +95,7 @@ class CircuitScorer:
 
         # Sum single-qubit gate errors for used qubits
         for op_name in self.target.operation_names:
-            if op_name in ["measure", "delay", "reset"]:
+            if op_name in self.SKIP_OPERATIONS:
                 continue
             qargs_list = self.target.qargs_for_operation_name(op_name)
             if not qargs_list:
@@ -142,6 +145,6 @@ class CircuitScorer:
             return ["No qubits used in circuit"]
 
         return [
-            f"Total error on {len(used_qubits)} qubits: {total_error*100:.6f}%",
+            f"Total error on {len(used_qubits)} qubits: {total_error * 100:.6f}%",
             f"Used qubits: {sorted(used_qubits)}",
         ]
