@@ -92,43 +92,74 @@ class CircuitScorer:
             return 0.0
 
         total_error = 0.0
+        total_error += self._sum_single_qubit_errors(used_qubits)
+        total_error += self._sum_two_qubit_errors(used_qubits)
+        total_error += self._sum_readout_errors(used_qubits)
+        return total_error
 
-        # Sum single-qubit gate errors for used qubits
+    def _sum_single_qubit_errors(self, used_qubits: set[int]) -> float:
+        """Sum single-qubit gate errors for used qubits."""
+        error_sum = 0.0
+
         for op_name in self.target.operation_names:
             if op_name in self.SKIP_OPERATIONS:
                 continue
+
             qargs_list = self.target.qargs_for_operation_name(op_name)
             if not qargs_list:
                 continue
-            for qargs in qargs_list:
-                if len(qargs) == 1 and qargs[0] in used_qubits:
-                    props = self.target[op_name].get(qargs)
-                    if props and props.error is not None:
-                        total_error += props.error
 
-        # Sum two-qubit gate errors for used qubit pairs
+            for qargs in qargs_list:
+                if len(qargs) != 1 or qargs[0] not in used_qubits:
+                    continue
+
+                props = self.target[op_name].get(qargs)
+                if props and props.error is not None:
+                    error_sum += props.error
+
+        return error_sum
+
+    def _sum_two_qubit_errors(self, used_qubits: set[int]) -> float:
+        """Sum two-qubit gate errors for used qubit pairs."""
+        error_sum = 0.0
+
         for op_name in self.target.operation_names:
             qargs_list = self.target.qargs_for_operation_name(op_name)
             if not qargs_list:
                 continue
+
             for qargs in qargs_list:
-                if len(qargs) == 2:
-                    if qargs[0] in used_qubits and qargs[1] in used_qubits:
-                        props = self.target[op_name].get(qargs)
-                        if props and props.error is not None:
-                            total_error += props.error
+                if len(qargs) != 2:
+                    continue
+                if qargs[0] not in used_qubits or qargs[1] not in used_qubits:
+                    continue
 
-        # Sum readout errors for used qubits
-        if "measure" in self.target.operation_names:
-            qargs_list = self.target.qargs_for_operation_name("measure")
-            if qargs_list:
-                for qargs in qargs_list:
-                    if len(qargs) == 1 and qargs[0] in used_qubits:
-                        props = self.target["measure"].get(qargs)
-                        if props and props.error is not None:
-                            total_error += props.error
+                props = self.target[op_name].get(qargs)
+                if props and props.error is not None:
+                    error_sum += props.error
 
-        return total_error
+        return error_sum
+
+    def _sum_readout_errors(self, used_qubits: set[int]) -> float:
+        """Sum readout errors for used qubits."""
+        if "measure" not in self.target.operation_names:
+            return 0.0
+
+        error_sum = 0.0
+        qargs_list = self.target.qargs_for_operation_name("measure")
+
+        if not qargs_list:
+            return 0.0
+
+        for qargs in qargs_list:
+            if len(qargs) != 1 or qargs[0] not in used_qubits:
+                continue
+
+            props = self.target["measure"].get(qargs)
+            if props and props.error is not None:
+                error_sum += props.error
+
+        return error_sum
 
     def _build_score_reasons(self, used_qubits: set[int], total_error: float) -> list[str]:
         """
