@@ -11,7 +11,7 @@ from enhanced_quantum_backend_selector.models import BackendMetrics, CircuitScor
 
 
 class CircuitScorer:
-    """Scores backends for specific quantum circuits using multiple criteria"""
+    """Scores backends for quantum circuits based on transpiled error analysis."""
 
     # Operations to skip when calculating gate errors (non-gate operations)
     SKIP_OPERATIONS = frozenset(["measure", "delay", "reset"])
