@@ -62,7 +62,14 @@ class BackendSelector:
     # Cache TTL: 1 hour (backend calibrations change slowly)
     CACHE_TTL_SECONDS: float = 3600.0
 
-    def __init__(self, backends: list[BackendV2]) -> None:
+    # Number of transpilation runs for averaging (higher = more accurate but slower)
+    DEFAULT_TRANSPILATION_RUNS: int = 3
+
+    def __init__(
+        self,
+        backends: list[BackendV2],
+        transpilation_runs: int | None = None,
+    ) -> None:
         """
         Initialize the backend selector.
 
@@ -81,14 +88,25 @@ class BackendSelector:
         Args:
             backends: List of BackendV2 instances to select from. Can include
                 multiple versions of the same backend with different configurations.
+            transpilation_runs: Number of times to transpile each circuit for
+                averaging (default: 3). Higher values improve accuracy but increase
+                computation time. Must be at least 1.
 
         Raises:
-            ValueError: If backends list is empty.
+            ValueError: If backends list is empty or transpilation_runs < 1.
         """
         if not backends:
             raise ValueError("backends list cannot be empty")
 
+        if transpilation_runs is not None and transpilation_runs < 1:
+            raise ValueError("transpilation_runs must be at least 1")
+
         self.backends = backends
+        self.transpilation_runs = (
+            transpilation_runs
+            if transpilation_runs is not None
+            else self.DEFAULT_TRANSPILATION_RUNS
+        )
         self._metrics_cache: dict[str, tuple[BackendMetrics, float]] = {}
         self._analyzer_cache: dict[str, BackendAnalyzer] = {}
 
@@ -274,7 +292,7 @@ class BackendSelector:
         """
         Score a single backend for the circuit.
 
-        Transpiles the circuit 3 times (since transpilation is stochastic)
+        Transpiles the circuit multiple times (since transpilation is stochastic)
         and averages the scores to get a more accurate assessment.
 
         Args:
@@ -290,11 +308,11 @@ class BackendSelector:
         # Get cached or fresh metrics
         metrics = self._get_metrics(analyzer)
 
-        # Transpile and score 3 times, then average
+        # Transpile and score multiple times, then average
         scores = []
         all_reasons = []
 
-        for run_num in range(3):
+        for run_num in range(self.transpilation_runs):
             # Transpile the circuit to this backend
             # Each run may produce different results due to stochastic nature
             transpiled = transpile(circuit, backend=backend, optimization_level=2)
@@ -323,7 +341,7 @@ class BackendSelector:
             compatible=True,  # If transpilation succeeded, it's compatible
             reasons=all_reasons
             + [
-                f"Average score over 3 transpilation runs: {avg_score:.6f}",
+                f"Average score over {self.transpilation_runs} transpilation runs: {avg_score:.6f}",
                 gate_note,
             ],
             score=avg_score,

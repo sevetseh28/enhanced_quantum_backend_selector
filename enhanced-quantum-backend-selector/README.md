@@ -15,7 +15,7 @@ Quantum computing users typically rely on simplistic backend selection methods l
 
 - **Transpilation-Based**: Circuits are transpiled to each backend's native gate set
 - **Real Error Calculation**: Sums actual error rates for the specific qubits and gates used
-- **Multiple Runs**: Averages over 3 transpilation runs for stability
+- **Multiple Runs**: Averages over multiple transpilation runs for stability (default: 3, configurable)
 - **Direct Quality Metric**: Score = negative total error (higher is better)
 
 ## Installation
@@ -63,7 +63,7 @@ print(f"Reasons: {', '.join(best.score_data.reasons)}")
 - ✅ **Transpilation-Based Scoring**: Calculates actual error rates for your specific circuit
 - ✅ **Fractional Gates Support**: Automatically evaluates with/without fractional gates for chemistry circuits
 - ✅ **Provider Agnostic**: Works with any Qiskit BackendV2 provider (IBM, Aer, etc.)
-- ✅ **Multiple Run Averaging**: 3 transpilation runs for stable scoring
+- ✅ **Multiple Run Averaging**: Configurable transpilation runs (default: 3) for stable scoring
 - ✅ **Smart Caching**: 1-hour TTL cache minimizes backend queries
 - ✅ **Parallel Processing**: Scores multiple backends concurrently (up to 10 workers)
 - ✅ **Comprehensive Type Hints**: Full mypy strict mode compliance

@@ -137,7 +137,7 @@ if recommendation.metrics.avg_t1:
 - Score is calculated by:
   1. Transpiling your circuit to the backend (optimization level 2)
   2. Summing all error rates for the qubits used in the transpiled circuit
-  3. Averaging over 3 independent transpilation runs
+  3. Averaging over multiple independent transpilation runs (default: 3, configurable)
   4. For chemistry circuits, include both standard and fractional gate versions in your backends list to compare
 
 ### 5. Execute Your Circuit

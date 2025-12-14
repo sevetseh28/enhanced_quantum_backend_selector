@@ -8,7 +8,7 @@ The library provides intelligent backend selection through **transpilation-based
 
 1. **Transpiles** your circuit to each backend's native gate set
 2. **Calculates** the total expected error from all qubits and gates used
-3. **Averages** over 3 independent transpilation runs for stability
+3. **Averages** over multiple independent transpilation runs for stability (default: 3, configurable)
 4. **Ranks** backends by their actual expected error for your specific circuit
 
 ## Basic Usage
@@ -51,7 +51,7 @@ The score is based on **transpilation-based error estimation**:
    - Single-qubit gate errors
    - Two-qubit gate errors
    - Readout errors
-3. **Score is averaged** over 3 independent transpilation runs
+3. **Score is averaged** over multiple independent transpilation runs (default: 3, configurable)
 4. **Score is negative** of the total error: `score = -total_error`
 
 **Higher scores are better** (less negative = lower error):
@@ -221,6 +221,26 @@ Multiple backends are scored in parallel (up to 10 workers):
 # No configuration needed
 selector = BackendSelector(backends)  # All backends scored in parallel
 ```
+
+### Configuring Transpilation Runs
+
+Adjust the accuracy-performance trade-off by configuring transpilation runs:
+
+```python
+# Default: 3 runs (balanced accuracy and speed)
+selector = BackendSelector(backends)
+
+# Fast: 1 run (faster but less stable scores)
+selector_fast = BackendSelector(backends, transpilation_runs=1)
+
+# Accurate: 5+ runs (more stable scores but slower)
+selector_accurate = BackendSelector(backends, transpilation_runs=5)
+```
+
+**Trade-offs:**
+- **More runs**: More accurate/stable scores, but slower
+- **Fewer runs**: Faster scoring, but scores may vary more between calls
+- **Recommended**: 3 runs (default) for most use cases
 
 ## Best Practices
 

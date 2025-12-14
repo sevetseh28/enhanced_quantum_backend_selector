@@ -19,11 +19,15 @@ Main class for selecting quantum backends.
 ```python
 from enhanced_quantum_backend_selector import BackendSelector
 
-selector = BackendSelector(backends: List[BackendV2])
+selector = BackendSelector(
+    backends: List[BackendV2],
+    transpilation_runs: int | None = None
+)
 ```
 
 **Parameters:**
 - `backends`: List of BackendV2 instances. For chemistry circuits, include both standard and fractional gate versions of the same backend.
+- `transpilation_runs`: Number of times to transpile each circuit for averaging (default: 3). Higher values improve accuracy but increase computation time. Must be at least 1.
 
 **Methods:**
 
