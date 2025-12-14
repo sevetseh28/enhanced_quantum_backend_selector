@@ -7,14 +7,15 @@ This module provides tools for scoring quantum backends based on circuit require
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
-from enhanced_quantum_backend_selector.models import BackendMetrics, CircuitScore
+from enhanced_quantum_backend_selector.models import (
+    SKIP_OPERATIONS,
+    BackendMetrics,
+    CircuitScore,
+)
 
 
 class CircuitScorer:
     """Scores backends for quantum circuits based on transpiled error analysis."""
-
-    # Operations to skip when calculating gate errors (non-gate operations)
-    SKIP_OPERATIONS = frozenset(["measure", "delay", "reset"])
 
     def __init__(self, backend: BackendV2, metrics: BackendMetrics):
         """
@@ -102,7 +103,7 @@ class CircuitScorer:
         error_sum = 0.0
 
         for op_name in self.target.operation_names:
-            if op_name in self.SKIP_OPERATIONS:
+            if op_name in SKIP_OPERATIONS:
                 continue
 
             qargs_list = self.target.qargs_for_operation_name(op_name)

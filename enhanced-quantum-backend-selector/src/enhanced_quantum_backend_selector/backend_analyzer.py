@@ -8,7 +8,11 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
 from enhanced_quantum_backend_selector.circuit_scorer import CircuitScorer
-from enhanced_quantum_backend_selector.models import BackendMetrics, CircuitScore
+from enhanced_quantum_backend_selector.models import (
+    SKIP_OPERATIONS,
+    BackendMetrics,
+    CircuitScore,
+)
 
 
 class BackendAnalyzer:
@@ -100,7 +104,7 @@ class BackendAnalyzer:
         """Extract all single-qubit gate errors"""
         errors = []
         for op_name in self.target.operation_names:
-            if op_name in ["measure", "delay", "reset"]:
+            if op_name in SKIP_OPERATIONS:
                 continue
             qargs_list = self.target.qargs_for_operation_name(op_name)
             if not qargs_list:
@@ -163,9 +167,9 @@ class BackendAnalyzer:
         """Print a formatted summary of backend metrics"""
         metrics = self.extract_metrics()
 
-        print(f"\n{'='*70}")
+        print(f"\n{'=' * 70}")
         print(f"Backend: {metrics.name}")
-        print(f"{'='*70}")
+        print(f"{'=' * 70}")
 
         print("\nBasic Properties:")
         print(f"  Qubits: {metrics.num_qubits if metrics.num_qubits else 'variable'}")
@@ -176,33 +180,37 @@ class BackendAnalyzer:
 
         if metrics.avg_1q_error is not None:
             print("\nSingle-Qubit Gate Errors:")
-            print(f"  Average: {metrics.avg_1q_error*100:.4f}%")
+            print(f"  Average: {metrics.avg_1q_error * 100:.4f}%")
             if metrics.min_1q_error is not None and metrics.max_1q_error is not None:
-                print(f"  Range: {metrics.min_1q_error*100:.4f}% - {metrics.max_1q_error*100:.4f}%")
+                print(
+                    f"  Range: {metrics.min_1q_error * 100:.4f}% - {metrics.max_1q_error * 100:.4f}%"
+                )
 
         if metrics.avg_2q_error is not None:
             print("\nTwo-Qubit Gate Errors:")
-            print(f"  Average: {metrics.avg_2q_error*100:.4f}%")
+            print(f"  Average: {metrics.avg_2q_error * 100:.4f}%")
             if metrics.min_2q_error is not None and metrics.max_2q_error is not None:
-                print(f"  Range: {metrics.min_2q_error*100:.4f}% - {metrics.max_2q_error*100:.4f}%")
+                print(
+                    f"  Range: {metrics.min_2q_error * 100:.4f}% - {metrics.max_2q_error * 100:.4f}%"
+                )
 
         if metrics.avg_readout_error is not None:
             print("\nReadout Errors:")
-            print(f"  Average: {metrics.avg_readout_error*100:.3f}%")
+            print(f"  Average: {metrics.avg_readout_error * 100:.3f}%")
             if metrics.max_readout_error is not None:
-                print(f"  Max: {metrics.max_readout_error*100:.3f}%")
+                print(f"  Max: {metrics.max_readout_error * 100:.3f}%")
 
         if metrics.avg_t1 is not None:
             print("\nCoherence Times:")
             if metrics.min_t1 is not None and metrics.max_t1 is not None:
                 print(
-                    f"  T1: {metrics.avg_t1*1e6:.2f}μs "
-                    f"(range: {metrics.min_t1*1e6:.2f} - {metrics.max_t1*1e6:.2f}μs)"
+                    f"  T1: {metrics.avg_t1 * 1e6:.2f}μs "
+                    f"(range: {metrics.min_t1 * 1e6:.2f} - {metrics.max_t1 * 1e6:.2f}μs)"
                 )
             else:
-                print(f"  T1: {metrics.avg_t1*1e6:.2f}μs")
+                print(f"  T1: {metrics.avg_t1 * 1e6:.2f}μs")
             if metrics.avg_t2 and metrics.min_t2:
-                print(f"  T2: {metrics.avg_t2*1e6:.2f}μs (min: {metrics.min_t2*1e6:.2f}μs)")
+                print(f"  T2: {metrics.avg_t2 * 1e6:.2f}μs (min: {metrics.min_t2 * 1e6:.2f}μs)")
 
         if metrics.num_edges is not None:
             print("\nConnectivity:")

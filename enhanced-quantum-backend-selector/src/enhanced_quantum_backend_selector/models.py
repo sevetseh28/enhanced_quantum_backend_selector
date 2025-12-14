@@ -12,6 +12,9 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from qiskit.providers import BackendV2
 
+# Operations to skip when calculating gate errors (non-gate operations)
+SKIP_OPERATIONS = frozenset(["measure", "delay", "reset"])
+
 
 @dataclass
 class BackendMetrics:
