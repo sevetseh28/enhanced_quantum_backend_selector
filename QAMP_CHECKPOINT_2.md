@@ -3,7 +3,7 @@
 **Mentee:** Hernan Esteves (@sevetseh28)  
 **Mentor:** Junye Huang (@HuangJunye)  
 **Project:** Enhanced Quantum Backend Selector  
-**Date:** December 18, 2024  
+**Date:** December 18, 2025  
 **Word Count:** ~920 words
 
 ---
