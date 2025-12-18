@@ -10,7 +10,7 @@
 
 ## 🎯 Project Overview
 
-The Enhanced Quantum Backend Selector is a Python library designed to improve how quantum developers select backends for their circuits. Current approaches typically rely on simplistic metrics like `least_busy()`, which only considers queue depth. This library provides intelligent backend selection by transpiling circuits to each available backend and calculating actual expected error rates based on the specific qubits and gates that will be used.
+The Enhanced Quantum Backend Selector is a Python library designed to improve how quantum developers select backends for their circuits. Current approaches typically rely on simplistic metrics like `least_busy()`, which only considers queue depth. This library provides intelligent backend selection by transpiling circuits to each available backend and calculating actual expected error based on the specific qubits and gates that will be used.
 
 The core goal is to help quantum developers automatically find the best backend for their specific circuit, considering real performance characteristics rather than generic metrics. This is particularly crucial as quantum hardware diversity increases and circuit-specific optimization becomes more important.
 
@@ -22,7 +22,7 @@ I have successfully implemented the core functionality for intelligent backend s
 
 **Multiple Run Averaging:** To account for transpilation stochasticity, the system runs 3 independent transpilations per backend and averages the scores. This provides stability and reduces sensitivity to unlucky layout selections.
 
-**Fractional Gates Support:** I implemented automatic detection of fractional gates, which are particularly beneficial for chemistry and VQE circuits. Users can pass both standard and fractional gate versions of the same backend, and the selector will evaluate both configurations independently.
+**Fractional Gates Support:** Users can pass both standard and fractional gate versions of the same backend, and the selector will evaluate both configurations independently.
 
 **Performance Optimizations:** Smart caching with 1-hour TTL minimizes expensive backend queries, while parallel processing via ThreadPoolExecutor (up to 10 workers) scores multiple backends concurrently without overwhelming services.
 
@@ -36,11 +36,11 @@ I have successfully implemented the core functionality for intelligent backend s
 
 The development journey involved significant exploration of scoring methodologies:
 
-**Initial Approach - Weighted Multi-Criteria Scoring:** I initially implemented a configurable weighted scoring system with separate factors for gate fidelity, connectivity, coherence times, and queue depth. This included a `ScoringWeights` class allowing users to customize priorities. However, based on domain expert and mentor feedback, I learned that error rates are the criterion that matters most. Factors like qubit connectivity don't need explicit weighting because they are implicitly taken into account once the circuit is compiled—the transpiler handles layout and SWAP insertion automatically.
+**Initial Approach - Weighted Multi-Criteria Scoring:** I initially implemented a configurable weighted scoring system with separate factors for gate fidelity, connectivity, coherence times, and queue depth. This included a `ScoringWeights` class allowing users to customize priorities. However, based on domain expert and mentor feedback, I learned that error rates are the criterion that matters most. Factors like qubit connectivity don't need explicit weighting because they are implicitly taken into account once the circuit is transpiled—the transpiler handles layout and SWAP insertion automatically.
 
 **Pivot to Transpilation-Based Scoring:** This insight led me to completely remove the `ScoringWeights` system and implement direct transpilation-based scoring. By transpiling the circuit to each backend, the system reveals exactly which qubits and gates will be used, providing much more accurate error estimation. This approach proved far superior because it calculates errors for the actual execution path rather than generic averages.
 
-**Fractional Gates Support:** I implemented automatic detection and support for fractional gates, which are particularly valuable for chemistry circuits. Fractional gates are backend-level properties, so users can pass both standard and fractional gate versions of the same backend to the selector for direct comparison.
+**Fractional Gates Support:** I implemented support for fractional gates, which are particularly valuable for QAOA circuits. Since fractional gates are backend-level configuration properties, users must pass both standard and fractional gate versions of the same backend as separate entries in the backends list (e.g., `service.backend('ibm_torino')` and `service.backend('ibm_torino', use_fractional_gates=True)`). The selector treats these as distinct backend configurations and independently evaluates both, allowing direct comparison to determine which configuration yields lower errors for the specific circuit.
 
 ## 💡 Key Insights and Learnings
 
