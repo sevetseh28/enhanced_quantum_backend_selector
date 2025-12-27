@@ -85,7 +85,7 @@ BackendRecommendation
 └── rank: int
 ```
 
-**Note on Scoring:** The current implementation uses pure transpilation-based scoring where the score is calculated as the negative sum of all error rates from the transpiled circuit.
+**Note on Scoring:** The current implementation uses pure transpilation-based scoring where the score is calculated as the negative sum of error rates for each gate operation in the transpiled circuit, plus readout errors for all used qubits.
 
 ## Module Structure
 

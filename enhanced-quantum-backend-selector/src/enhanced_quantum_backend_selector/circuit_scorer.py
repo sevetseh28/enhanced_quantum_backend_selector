@@ -45,9 +45,11 @@ class CircuitScorer:
         Returns:
             CircuitScore containing compatibility and scoring information
         """
-        # Get used qubits and calculate total error
+        # Calculate total error for the circuit
+        total_error = self._calculate_total_error(circuit)
+
+        # Get used qubits for scoring reasons
         used_qubits = self._get_used_qubits(circuit)
-        total_error = self._calculate_total_error(circuit, used_qubits)
 
         # Create score data with results
         score_data = CircuitScore(
@@ -75,71 +77,46 @@ class CircuitScorer:
                 used_qubits.add(circuit.find_bit(qubit).index)
         return used_qubits
 
-    def _calculate_total_error(self, circuit: QuantumCircuit, used_qubits: set[int]) -> float:
+    def _calculate_total_error(self, circuit: QuantumCircuit) -> float:
         """
-        Calculate total error from qubits used in the circuit.
+        Calculate total error from gates in the circuit.
 
-        Sums up single-qubit, two-qubit, and readout errors for all qubits
-        that are used in the circuit.
+        Sums up errors for each gate operation in the circuit, plus readout errors
+        for all used qubits.
 
         Args:
             circuit: The quantum circuit (should be transpiled to backend)
-            used_qubits: Set of qubit indices used in the circuit
 
         Returns:
             Total error rate (sum of all error sources)
         """
-        if not used_qubits:
+        if not circuit.data:
             return 0.0
 
         total_error = 0.0
-        total_error += self._sum_single_qubit_errors(used_qubits)
-        total_error += self._sum_two_qubit_errors(used_qubits)
-        total_error += self._sum_readout_errors(used_qubits)
-        return total_error
 
-    def _sum_single_qubit_errors(self, used_qubits: set[int]) -> float:
-        """Sum single-qubit gate errors for used qubits."""
-        error_sum = 0.0
+        # Sum errors for each gate operation in the circuit
+        for instruction in circuit.data:
+            op_name = instruction.operation.name
 
-        for op_name in self.target.operation_names:
+            # Skip non-gate operations
             if op_name in SKIP_OPERATIONS:
                 continue
 
-            qargs_list = self.target.qargs_for_operation_name(op_name)
-            if not qargs_list:
-                continue
+            # Get the qubits this operation acts on
+            qargs = tuple(circuit.find_bit(qubit).index for qubit in instruction.qubits)
 
-            for qargs in qargs_list:
-                if len(qargs) != 1 or qargs[0] not in used_qubits:
-                    continue
-
+            # Get error for this specific gate on these qubits
+            if op_name in self.target.operation_names:
                 props = self.target[op_name].get(qargs)
                 if props and props.error is not None:
-                    error_sum += props.error
+                    total_error += props.error
 
-        return error_sum
+        # Add readout errors for all used qubits (once per qubit)
+        used_qubits = self._get_used_qubits(circuit)
+        total_error += self._sum_readout_errors(used_qubits)
 
-    def _sum_two_qubit_errors(self, used_qubits: set[int]) -> float:
-        """Sum two-qubit gate errors for used qubit pairs."""
-        error_sum = 0.0
-
-        for op_name in self.target.operation_names:
-            qargs_list = self.target.qargs_for_operation_name(op_name)
-            if not qargs_list:
-                continue
-
-            for qargs in qargs_list:
-                if len(qargs) != 2:
-                    continue
-                if qargs[0] not in used_qubits or qargs[1] not in used_qubits:
-                    continue
-
-                props = self.target[op_name].get(qargs)
-                if props and props.error is not None:
-                    error_sum += props.error
-
-        return error_sum
+        return total_error
 
     def _sum_readout_errors(self, used_qubits: set[int]) -> float:
         """Sum readout errors for used qubits."""
@@ -177,6 +154,6 @@ class CircuitScorer:
             return ["No qubits used in circuit"]
 
         return [
-            f"Total error on {len(used_qubits)} qubits: {total_error * 100:.6f}%",
-            f"Used qubits: {sorted(used_qubits)}",
+            f"Total error on {len(used_qubits)} qubit(s): {total_error * 100:.6f}%",
+            f"Used qubit(s): {sorted(used_qubits)}",
         ]

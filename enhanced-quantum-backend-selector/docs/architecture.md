@@ -78,12 +78,11 @@ The library implements an intelligent backend selection system using **transpila
 **Scoring Method**:
 
 1. **Transpile circuit** to backend with optimization level 2
-2. **Identify used qubits** from transpiled circuit
-3. **Sum all error sources** for those qubits:
-   - Single-qubit gate errors
-   - Two-qubit gate errors (for all gate types)
-   - Readout errors
-4. **Return negative error sum**: `score = -total_error`
+2. **Calculate total error** by iterating through each gate operation:
+   - Each single-qubit gate adds its error rate
+   - Each two-qubit gate adds its error rate
+   - Each used qubit's readout error is counted once
+3. **Return negative error sum**: `score = -total_error`
 
 **Multiple Runs**:
 - Each backend is scored 3 times with independent transpilations
@@ -99,15 +98,22 @@ The library implements an intelligent backend selection system using **transpila
 **Score Formula**:
 ```python
 # For each transpilation run:
-total_error = sum([
-    single_qubit_errors,    # For all used qubits
-    two_qubit_errors,       # For all used qubit pairs
-    readout_errors,         # For all used qubits
-])
+total_error = 0.0
+
+# Sum error for each gate operation in the circuit
+for gate in transpiled_circuit:
+    if gate.is_single_qubit_gate:
+        total_error += gate.error_rate
+    elif gate.is_two_qubit_gate:
+        total_error += gate.error_rate
+
+# Add readout error once per used qubit
+for qubit in used_qubits:
+    total_error += qubit.readout_error
 
 score = -total_error
 
-# Final score is average over 3 runs:
+# Final score is average over multiple runs (default: 3):
 final_score = mean([score_run1, score_run2, score_run3])
 ```
 
@@ -188,15 +194,13 @@ For each backend:
        └─▶ Store in cache (1h TTL)
    │
    ▼
-2. Run 3 transpilation passes:
+2. Run multiple transpilation passes (default: 3):
    │
    For each run (i = 1, 2, 3):
    ├─▶ Transpile circuit to backend (optimization_level=2)
-   ├─▶ Identify used qubits in transpiled circuit
-   ├─▶ Sum error rates:
-   │   ├─▶ Single-qubit gate errors (all used qubits)
-   │   ├─▶ Two-qubit gate errors (all used qubit pairs)
-   │   └─▶ Readout errors (all used qubits)
+   ├─▶ Sum error rates for each gate operation:
+   │   ├─▶ For each gate in circuit: add gate's error rate
+   │   └─▶ For each used qubit: add readout error (once per qubit)
    └─▶ score_i = -total_error
    │
    ▼

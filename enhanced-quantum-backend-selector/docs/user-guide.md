@@ -47,10 +47,10 @@ backend = recommendation.backend
 The score is based on **transpilation-based error estimation**:
 
 1. **Circuit is transpiled** to the backend's native gate set with optimization level 2
-2. **Total error is calculated** by summing errors for all qubits used in the transpiled circuit:
-   - Single-qubit gate errors
-   - Two-qubit gate errors
-   - Readout errors
+2. **Total error is calculated** by summing errors for each gate operation in the transpiled circuit:
+   - Each single-qubit gate contributes its error rate
+   - Each two-qubit gate contributes its error rate
+   - Each qubit's readout error is counted once
 3. **Score is averaged** over multiple independent transpilation runs (default: 3, configurable)
 4. **Score is negative** of the total error: `score = -total_error`
 
