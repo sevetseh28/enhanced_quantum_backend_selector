@@ -107,6 +107,8 @@ poetry run ruff format .
 - [User Guide](docs/user-guide.md)
 - [API Reference](docs/api-reference.md)
 - [Examples](examples/)
+- [Contributing Guidelines](CONTRIBUTING.md)
+- [Release Process](RELEASE.md)
 - [Changelog](CHANGELOG.md)
 
 ## License
