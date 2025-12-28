@@ -131,7 +131,6 @@ final_score = mean([score_run1, score_run2, score_run3])
 class BackendRecommendation:
     backend: BackendV2           # The recommended backend
     score_data: CircuitScore     # Scoring results
-    metrics: BackendMetrics      # Backend specifications
     rank: int                    # Position in rankings (1=best)
 ```
 

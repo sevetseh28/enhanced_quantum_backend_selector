@@ -63,7 +63,6 @@ class TestIntegration:
         # Verify recommendation structure
         assert best.backend is not None
         assert best.score_data is not None
-        assert best.metrics is not None
         assert best.rank == 1
         assert best.score_data.backend == best.backend.name
 

@@ -39,7 +39,6 @@ class TestBackendSelector:
         """Test BackendSelector initialization with valid backends list."""
         selector = BackendSelector(backends)
         assert selector.backends == backends
-        assert len(selector._metrics_cache) == 0
         assert len(selector._analyzer_cache) == 0
 
     def test_init_empty_backends_raises_error(self):
@@ -105,28 +104,28 @@ class TestBackendSelector:
             selector.rank_backends(zero_qubit_circuit)
 
     def test_clear_cache(self, backends, simple_circuit):
-        """Test that clear_cache empties the metrics cache."""
+        """Test that clear_cache empties the analyzer cache."""
         selector = BackendSelector(backends)
 
         # First ranking populates cache
         selector.rank_backends(simple_circuit)
-        assert len(selector._metrics_cache) > 0
+        assert len(selector._analyzer_cache) > 0
 
         # Clear cache
         selector.clear_cache()
-        assert len(selector._metrics_cache) == 0
+        assert len(selector._analyzer_cache) == 0
 
-    def test_metrics_caching(self, backends, simple_circuit):
-        """Test that metrics are cached between calls."""
+    def test_analyzer_caching(self, backends, simple_circuit):
+        """Test that analyzers are cached between calls."""
         selector = BackendSelector(backends)
 
         # First call
         selector.rank_backends(simple_circuit)
-        cache_size_after_first = len(selector._metrics_cache)
+        cache_size_after_first = len(selector._analyzer_cache)
 
         # Second call should reuse cache
         selector.rank_backends(simple_circuit)
-        cache_size_after_second = len(selector._metrics_cache)
+        cache_size_after_second = len(selector._analyzer_cache)
 
         assert cache_size_after_first == cache_size_after_second
         assert cache_size_after_first == len(backends)

@@ -343,15 +343,26 @@ def analyze_backend(recommendation):
     
     # Backend specifications
     print("\nBackend Metrics:")
-    print(f"  Qubits:          {recommendation.metrics.num_qubits}")
-    print(f"  Connectivity:    {recommendation.metrics.num_edges} edges")
-    if recommendation.metrics.avg_t1:
-        print(f"  Avg T1:          {recommendation.metrics.avg_t1:.2e} s")
-    if recommendation.metrics.avg_t2:
-        print(f"  Avg T2:          {recommendation.metrics.avg_t2:.2e} s")
-    if recommendation.metrics.avg_readout_error is not None:
-        print(f"  Readout Error:   {recommendation.metrics.avg_readout_error:.4f}")
-    print(f"  Operational:     {recommendation.metrics.operational}")
+    print(f"  Qubits:          {recommendation.backend.num_qubits}")
+    coupling_map = recommendation.backend.target.build_coupling_map()
+    num_edges = len(coupling_map.get_edges()) if coupling_map else 0
+    print(f"  Connectivity:    {num_edges} edges")
+    # Access qubit properties directly from backend
+    if recommendation.backend.target.qubit_properties:
+        t1_values = [p.t1 for p in recommendation.backend.target.qubit_properties if p.t1 is not None]
+        t2_values = [p.t2 for p in recommendation.backend.target.qubit_properties if p.t2 is not None]
+        if t1_values:
+            avg_t1 = sum(t1_values) / len(t1_values)
+            print(f"  Avg T1:          {avg_t1:.2e} s")
+        if t2_values:
+            avg_t2 = sum(t2_values) / len(t2_values)
+            print(f"  Avg T2:          {avg_t2:.2e} s")
+    # Check operational status
+    try:
+        status = recommendation.backend.status()
+        print(f"  Operational:     {status.operational}")
+    except Exception:
+        pass
     
     # Reasons for selection
     if recommendation.score_data.reasons:

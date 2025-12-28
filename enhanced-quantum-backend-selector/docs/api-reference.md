@@ -8,7 +8,7 @@ The library provides three main public classes:
 
 - `BackendSelector` - Main API for backend selection
 - `BackendRecommendation` - Selection results
-- `BackendMetrics` - Backend specifications
+- `CircuitScore` - Scoring details
 
 ## Quick Reference
 
@@ -43,7 +43,6 @@ Result object containing backend selection details.
 class BackendRecommendation:
     backend: BackendV2          # The recommended backend
     score_data: CircuitScore    # Scoring results with negative error sum
-    metrics: BackendMetrics     # Backend specifications
     rank: int                   # Position in rankings (1=best)
 ```
 
@@ -81,7 +80,6 @@ BackendRecommendation
 │   ├── compatible: bool
 │   ├── reasons: List[str]
 │   └── score: float (negative error sum, higher is better)
-├── metrics: BackendMetrics
 └── rank: int
 ```
 
@@ -106,7 +104,6 @@ All public classes and functions are exported from the top-level module:
 from enhanced_quantum_backend_selector import (
     BackendSelector,
     BackendRecommendation,
-    BackendMetrics,
     CircuitScore,
 )
 ```

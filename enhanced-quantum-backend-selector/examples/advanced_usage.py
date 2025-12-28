@@ -23,7 +23,7 @@ def print_recommendation(rec: BackendRecommendation, title: str) -> None:
     print(f"  Backend:  {rec.backend.name}")
     print(f"  Score:    {rec.score_data.score:.6f} (negative error sum)")
     print(f"  Error:    {error_pct:.3f}%")
-    print(f"  Qubits:   {rec.metrics.num_qubits}")
+    print(f"  Qubits:   {rec.backend.num_qubits}")
     print(f"  Compatible: {rec.score_data.compatible}")
 
 
@@ -93,7 +93,7 @@ def main() -> None:
     for rec in all_recs:
         error_pct = -rec.score_data.score * 100
         print(f"  #{rec.rank:<5} {rec.backend.name:<30} "
-              f"{rec.score_data.score:>12.6f} {error_pct:>9.3f}% {rec.metrics.num_qubits:>8}")
+              f"{rec.score_data.score:>12.6f} {error_pct:>9.3f}% {rec.backend.num_qubits:>8}")
     print()
 
     # Example 4: Understanding Score Differences

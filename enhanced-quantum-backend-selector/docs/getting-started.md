@@ -123,10 +123,17 @@ for reason in recommendation.score_data.reasons:
 
 # Backend specifications
 print("\nBackend Details:")
-print(f"  Num Qubits:     {recommendation.metrics.num_qubits}")
-print(f"  Connectivity:   {recommendation.metrics.num_edges} edges")
-if recommendation.metrics.avg_t1:
-    print(f"  Avg T1 Time:    {recommendation.metrics.avg_t1:.2e} seconds")
+print(f"  Num Qubits:     {recommendation.backend.num_qubits}")
+# Get connectivity from backend target
+coupling_map = recommendation.backend.target.build_coupling_map()
+num_edges = len(coupling_map.get_edges()) if coupling_map else 0
+print(f"  Connectivity:   {num_edges} edges")
+# Access qubit properties for T1/T2 times
+if recommendation.backend.target.qubit_properties:
+    t1_values = [p.t1 for p in recommendation.backend.target.qubit_properties if p.t1 is not None]
+    if t1_values:
+        avg_t1 = sum(t1_values) / len(t1_values)
+        print(f"  Avg T1 Time:    {avg_t1:.2e} seconds")
 ```
 
 **Understanding Scores:**

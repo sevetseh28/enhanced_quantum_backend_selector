@@ -7,7 +7,6 @@ based on circuit requirements and multi-criteria scoring.
 
 from __future__ import annotations
 
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from qiskit import transpile
@@ -15,11 +14,7 @@ from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
 from enhanced_quantum_backend_selector.backend_analyzer import BackendAnalyzer
-from enhanced_quantum_backend_selector.models import (
-    BackendMetrics,
-    BackendRecommendation,
-    CircuitScore,
-)
+from enhanced_quantum_backend_selector.models import BackendRecommendation, CircuitScore
 
 
 class BackendSelector:
@@ -58,9 +53,6 @@ class BackendSelector:
         >>> for i, rec in enumerate(rankings[:3], 1):
         ...     print(f"{i}. {rec.backend.name}: {rec.score_data.score:.2f}")
     """
-
-    # Cache TTL: 1 hour (backend calibrations change slowly)
-    CACHE_TTL_SECONDS: float = 3600.0
 
     # Number of transpilation runs for averaging (higher = more accurate but slower)
     DEFAULT_TRANSPILATION_RUNS: int = 3
@@ -107,7 +99,6 @@ class BackendSelector:
             if transpilation_runs is not None
             else self.DEFAULT_TRANSPILATION_RUNS
         )
-        self._metrics_cache: dict[str, tuple[BackendMetrics, float]] = {}
         self._analyzer_cache: dict[str, BackendAnalyzer] = {}
 
     def select_backend(
@@ -233,7 +224,7 @@ class BackendSelector:
 
     def clear_cache(self) -> None:
         """
-        Clear the metrics cache to force fresh backend queries.
+        Clear the analyzer cache to force fresh backend analysis.
 
         Useful when backend calibrations have been updated or when you want
         to ensure the latest backend information is used.
@@ -242,7 +233,7 @@ class BackendSelector:
             >>> selector.clear_cache()  # Force refresh on next ranking
             >>> fresh_rankings = selector.rank_backends(circuit)
         """
-        self._metrics_cache.clear()
+        self._analyzer_cache.clear()
 
     def _score_backends_parallel(
         self,
@@ -305,9 +296,6 @@ class BackendSelector:
         # Get or create analyzer
         analyzer = self._get_analyzer(backend)
 
-        # Get cached or fresh metrics
-        metrics = self._get_metrics(analyzer)
-
         # Transpile and score multiple times, then average
         scores = []
         all_reasons = []
@@ -350,7 +338,6 @@ class BackendSelector:
         return BackendRecommendation(
             backend=backend,
             score_data=averaged_score_data,
-            metrics=metrics,
             rank=0,  # Will be assigned during ranking
         )
 
@@ -368,35 +355,3 @@ class BackendSelector:
             self._analyzer_cache[backend.name] = BackendAnalyzer(backend)
 
         return self._analyzer_cache[backend.name]
-
-    def _get_metrics(self, analyzer: BackendAnalyzer) -> BackendMetrics:
-        """
-        Get cached or extract fresh metrics for a backend.
-
-        Implements 1-hour TTL caching to minimize backend queries.
-
-        Args:
-            analyzer: The BackendAnalyzer instance.
-
-        Returns:
-            BackendMetrics for the backend.
-        """
-        backend_name = analyzer.backend.name
-        current_time = time.time()
-
-        # Check cache
-        if backend_name in self._metrics_cache:
-            cached_metrics, timestamp = self._metrics_cache[backend_name]
-            age = current_time - timestamp
-
-            # Return cached if still valid (within TTL)
-            if age < self.CACHE_TTL_SECONDS:
-                return cached_metrics
-
-        # Extract fresh metrics
-        metrics = analyzer.extract_metrics()
-
-        # Update cache
-        self._metrics_cache[backend_name] = (metrics, current_time)
-
-        return metrics

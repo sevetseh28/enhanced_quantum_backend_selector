@@ -8,16 +8,11 @@ A library for intelligent quantum backend selection using multiple criteria.
 from enhanced_quantum_backend_selector.backend_analyzer import BackendAnalyzer
 from enhanced_quantum_backend_selector.backend_selector import BackendSelector
 from enhanced_quantum_backend_selector.circuit_scorer import CircuitScorer
-from enhanced_quantum_backend_selector.models import (
-    BackendMetrics,
-    BackendRecommendation,
-    CircuitScore,
-)
+from enhanced_quantum_backend_selector.models import BackendRecommendation, CircuitScore
 
 __all__ = [
     "BackendSelector",
     "BackendRecommendation",
-    "BackendMetrics",
     "CircuitScore",
     # Advanced components
     "BackendAnalyzer",

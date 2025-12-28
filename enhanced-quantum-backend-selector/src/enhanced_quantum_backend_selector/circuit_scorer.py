@@ -7,26 +7,20 @@ This module provides tools for scoring quantum backends based on circuit require
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
-from enhanced_quantum_backend_selector.models import (
-    SKIP_OPERATIONS,
-    BackendMetrics,
-    CircuitScore,
-)
+from enhanced_quantum_backend_selector.models import SKIP_OPERATIONS, CircuitScore
 
 
 class CircuitScorer:
     """Scores backends for quantum circuits based on transpiled error analysis."""
 
-    def __init__(self, backend: BackendV2, metrics: BackendMetrics):
+    def __init__(self, backend: BackendV2):
         """
         Initialize the circuit scorer.
 
         Args:
             backend: The backend to score
-            metrics: Pre-extracted metrics for the backend
         """
         self.backend = backend
-        self.metrics = metrics
         self.target = backend.target
 
     def score_circuit(
