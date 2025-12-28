@@ -9,7 +9,19 @@ This example demonstrates:
 
 from qiskit import QuantumCircuit
 from qiskit.providers.fake_provider import GenericBackendV2
+
 from enhanced_quantum_backend_selector import BackendSelector
+
+
+def print_metric(label: str, value: float | None, format_spec: str = ".2e", unit: str = "") -> None:
+    """Print a metric with conditional N/A handling."""
+    if value:
+        formatted = f"{value:{format_spec}}"
+        if unit:
+            formatted = f"{formatted} {unit}"
+        print(f"    {label:<16}{formatted}")
+    else:
+        print(f"    {label:<16}N/A")
 
 
 def main() -> None:
@@ -54,28 +66,43 @@ def main() -> None:
     print("Step 4: Selecting best backend for circuit...")
     try:
         recommendation = selector.select_backend(qc)
-        
+
         print(f"\n✓ Recommended Backend: {recommendation.backend.name}")
         print(f"  Rank: #{recommendation.rank}")
         print(f"  Overall Score: {recommendation.score_data.score:.3f}")
         print(f"  Compatible: {recommendation.score_data.compatible}")
         print()
-        
-        print("  Backend Metrics:")
-        print(f"    Num Qubits:     {recommendation.metrics.num_qubits}")
-        print(f"    Connectivity:   {recommendation.metrics.num_edges} edges")
-        print(f"    Avg T1 Time:    {recommendation.metrics.avg_t1:.2e} seconds" if recommendation.metrics.avg_t1 else "    Avg T1 Time:    N/A")
-        print(f"    Avg T2 Time:    {recommendation.metrics.avg_t2:.2e} seconds" if recommendation.metrics.avg_t2 else "    Avg T2 Time:    N/A")
-        print(f"    Readout Error:  {recommendation.metrics.avg_readout_error:.4f}" if recommendation.metrics.avg_readout_error else "    Readout Error:  N/A")
-        print(f"    Operational:    {recommendation.metrics.operational}")
+
+        print("  Backend Properties:")
+        print(f"    Num Qubits:     {recommendation.backend.num_qubits}")
+        # Get connectivity info from backend
+        coupling_map = recommendation.backend.target.build_coupling_map()
+        num_edges = len(coupling_map.get_edges()) if coupling_map else 0
+        print(f"    Connectivity:   {num_edges} edges")
+        # Access qubit properties directly
+        if recommendation.backend.target.qubit_properties:
+            t1_values = [p.t1 for p in recommendation.backend.target.qubit_properties if p.t1 is not None]
+            t2_values = [p.t2 for p in recommendation.backend.target.qubit_properties if p.t2 is not None]
+            if t1_values:
+                avg_t1 = sum(t1_values) / len(t1_values)
+                print_metric("Avg T1 Time:", avg_t1, ".2e", "seconds")
+            if t2_values:
+                avg_t2 = sum(t2_values) / len(t2_values)
+                print_metric("Avg T2 Time:", avg_t2, ".2e", "seconds")
+        # Check operational status
+        try:
+            status = recommendation.backend.status()
+            print(f"    Operational:    {status.operational}")
+        except Exception:
+            pass
         print()
-        
+
         if recommendation.score_data.reasons:
             print("  Selection Reasons:")
             for reason in recommendation.score_data.reasons:
                 print(f"    • {reason}")
         print()
-        
+
     except ValueError as e:
         print(f"✗ Error: {e}")
         print()
@@ -83,14 +110,16 @@ def main() -> None:
     # Step 5: Show alternative approach - get top 3 rankings
     print("Step 5: Getting top 3 backend rankings...")
     rankings = selector.rank_backends(qc, top_n=3)
-    
+
     print(f"\nTop {len(rankings)} Backends:")
     print("-" * 70)
     for rec in rankings:
+        coupling_map = rec.backend.target.build_coupling_map()
+        num_edges = len(coupling_map.get_edges()) if coupling_map else 0
         print(f"  {rec.rank}. {rec.backend.name}")
         print(f"     Score: {rec.score_data.score:.3f} | "
-              f"Qubits: {rec.metrics.num_qubits} | "
-              f"Edges: {rec.metrics.num_edges or 0}")
+              f"Qubits: {rec.backend.num_qubits} | "
+              f"Edges: {num_edges}")
     print()
 
     print("=" * 70)

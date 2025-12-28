@@ -4,12 +4,11 @@ Integration tests for end-to-end workflows.
 Tests complete workflows with multiple backend types and real scenarios.
 """
 
-import pytest
 from qiskit import QuantumCircuit
-from qiskit_aer import AerSimulator
 from qiskit.providers.fake_provider import GenericBackendV2
+from qiskit_aer import AerSimulator
 
-from enhanced_quantum_backend_selector import BackendSelector, ScoringWeights
+from enhanced_quantum_backend_selector import BackendSelector
 
 
 class TestIntegration:
@@ -64,7 +63,6 @@ class TestIntegration:
         # Verify recommendation structure
         assert best.backend is not None
         assert best.score_data is not None
-        assert best.metrics is not None
         assert best.rank == 1
         assert best.score_data.backend == best.backend.name
 

@@ -12,50 +12,13 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from qiskit.providers import BackendV2
 
-
-@dataclass
-class BackendMetrics:
-    """Dataclass for backend metrics with comprehensive performance information"""
-
-    # Basic properties
-    name: str = ""
-    num_qubits: int | None = None
-    max_circuits: int | None = None
-
-    # Operations
-    num_operations: int = 0
-    operations: list[str] = field(default_factory=list)
-
-    # Single-qubit gate errors
-    avg_1q_error: float | None = None
-    max_1q_error: float | None = None
-    min_1q_error: float | None = None
-
-    # Two-qubit gate errors
-    avg_2q_error: float | None = None
-    max_2q_error: float | None = None
-    min_2q_error: float | None = None
-
-    # Readout errors
-    avg_readout_error: float | None = None
-    max_readout_error: float | None = None
-
-    # Coherence times
-    avg_t1: float | None = None
-    min_t1: float | None = None
-    max_t1: float | None = None
-    avg_t2: float | None = None
-    min_t2: float | None = None
-
-    # Connectivity
-    num_edges: int | None = None
-    is_bidirectional: bool | None = None
-    connectivity_ratio: float | None = None
-    avg_degree: float | None = None
-
-    # Status
-    operational: bool | None = None
-    pending_jobs: int | None = None
+# Operations to skip when calculating gate errors.
+# These operations do not contribute to gate-based errors:
+# - "measure": Measurement errors are modeled separately from gate errors.
+# - "delay": Delays are not physical gates and have distinct error models (e.g., decoherence).
+# - "reset": Reset operations are handled separately and have their own error characteristics.
+# Only gate operations are considered when aggregating gate error metrics.
+SKIP_OPERATIONS = frozenset(["measure", "delay", "reset"])
 
 
 @dataclass
@@ -87,7 +50,6 @@ class BackendRecommendation:
     Attributes:
         backend: The actual BackendV2 instance.
         score_data: Detailed scoring information for the circuit.
-        metrics: Extracted metrics from the backend.
         rank: Ranking position (1 = best, 2 = second best, etc.).
 
     Examples:
@@ -100,5 +62,4 @@ class BackendRecommendation:
 
     backend: BackendV2
     score_data: CircuitScore
-    metrics: BackendMetrics
     rank: int

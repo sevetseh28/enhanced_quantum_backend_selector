@@ -4,7 +4,7 @@ This document describes the design and implementation of the Enhanced Quantum Ba
 
 ## Overview
 
-The library implements a multi-criteria decision system for quantum backend selection, using a weighted scoring approach across four key quality factors.
+The library implements an intelligent backend selection system using **transpilation-based error estimation**. Rather than using generic backend metrics, it transpiles circuits to each backend and calculates the actual expected error rates based on the specific qubits and gates that will be used.
 
 ## System Architecture
 
@@ -73,35 +73,55 @@ The library implements a multi-criteria decision system for quantum backend sele
 
 ### 3. CircuitScorer
 
-**Responsibility**: Score backends against circuit requirements
+**Responsibility**: Score backends using transpilation-based error estimation
 
-**Scoring Components**:
+**Scoring Method**:
 
-1. **Gate Fidelity Score** (0-1):
-   - Average of 1-qubit, 2-qubit, and readout fidelities
-   - Normalized by error rates: `1 - error_rate`
+1. **Transpile circuit** to backend with optimization level 2
+2. **Calculate total error** by iterating through each gate operation:
+   - Each single-qubit gate adds its error rate
+   - Each two-qubit gate adds its error rate
+   - Each used qubit's readout error is counted once
+3. **Return negative error sum**: `score = -total_error`
 
-2. **Connectivity Score** (0-1):
-   - Based on coupling map size
-   - Linear normalization: `edges / max_edges`
+**Multiple Runs**:
+- Each backend is scored 3 times with independent transpilations
+- Scores are averaged to account for layout variation
+- Provides more stable and representative scoring
 
-3. **Coherence Score** (0-1):
-   - T1 and T2 times relative to circuit depth
-   - Formula: `exp(-circuit_time / coherence_time)`
+**Fractional Gates Support**:
+- Fractional gates are a backend-level property (set via `service.backend(..., use_fractional_gates=True)`)
+- Pass both standard and fractional versions in your backends list to compare
+- Each backend instance is scored independently
+- Particularly beneficial for chemistry and VQE circuits
 
-4. **Queue Score** (0-1):
-   - Inverse of pending jobs
-   - Formula: `1 / (1 + pending_jobs)`
-
-**Composite Score**:
+**Score Formula**:
 ```python
-total_score = (
-    fidelity_score * fidelity_weight +
-    connectivity_score * connectivity_weight +
-    coherence_score * coherence_weight +
-    queue_score * queue_weight
-)
+# For each transpilation run:
+total_error = 0.0
+
+# Sum error for each gate operation in the circuit
+for gate in transpiled_circuit:
+    if gate.is_single_qubit_gate:
+        total_error += gate.error_rate
+    elif gate.is_two_qubit_gate:
+        total_error += gate.error_rate
+
+# Add readout error once per used qubit
+for qubit in used_qubits:
+    total_error += qubit.readout_error
+
+score = -total_error
+
+# Final score is average over multiple runs (default: 3):
+final_score = mean([score_run1, score_run2, score_run3])
 ```
+
+**Advantages**:
+- **Realistic**: Based on actual transpiled circuit, not generic metrics
+- **Accurate**: Uses the specific qubits and gates that will execute
+- **Comprehensive**: Includes all error sources in one metric
+- **Stable**: Averaging reduces variation from layout randomness
 
 ### 4. Data Models
 
@@ -110,20 +130,21 @@ total_score = (
 @dataclass
 class BackendRecommendation:
     backend: BackendV2           # The recommended backend
-    score_data: CircuitScore     # Detailed scoring info
-    metrics: BackendMetrics      # Backend specifications
-    rank: int                    # Position in rankings
+    score_data: CircuitScore     # Scoring results
+    rank: int                    # Position in rankings (1=best)
 ```
 
-**ScoringWeights**:
+**CircuitScore**:
 ```python
 @dataclass
-class ScoringWeights:
-    gate_fidelity_weight: float = 1.5
-    connectivity_weight: float = 1.0
-    coherence_weight: float = 0.8
-    queue_weight: float = 0.4
+class CircuitScore:
+    backend: str                 # Backend name
+    compatible: bool             # Circuit compatibility
+    reasons: list[str]           # Human-readable explanations
+    score: float                 # Negative error sum (higher is better)
 ```
+
+**Note**: Current implementation uses pure transpilation-based scoring (negative error sum). The transpilation-based approach directly measures circuit quality on each backend by calculating actual expected errors.
 
 ## Data Flow
 
@@ -172,17 +193,25 @@ For each backend:
        └─▶ Store in cache (1h TTL)
    │
    ▼
-2. Calculate component scores:
-   ├─▶ Gate fidelity (from error rates)
-   ├─▶ Connectivity (from coupling map)
-   ├─▶ Coherence (from T1/T2 times)
-   └─▶ Queue time (from pending jobs)
+2. Run multiple transpilation passes (default: 3):
+   │
+   For each run (i = 1, 2, 3):
+   ├─▶ Transpile circuit to backend (optimization_level=2)
+   ├─▶ Sum error rates for each gate operation:
+   │   ├─▶ For each gate in circuit: add gate's error rate
+   │   └─▶ For each used qubit: add readout error (once per qubit)
+   └─▶ score_i = -total_error
    │
    ▼
-3. Apply weights and sum
+3. Average the 3 scores:
+   final_score = mean([score_1, score_2, score_3])
    │
    ▼
-4. Return CircuitScore object
+4. Return CircuitScore object:
+   ├─▶ backend name
+   ├─▶ compatibility flag
+   ├─▶ final_score (negative error sum)
+   └─▶ human-readable reasons
 ```
 
 ## Performance Optimizations
@@ -208,15 +237,31 @@ For each backend:
 
 ## Design Patterns
 
-### 1. Strategy Pattern
+### 1. Transpilation-Based Scoring
 
-ScoringWeights allows runtime configuration of scoring strategy:
+The current implementation uses direct transpilation to measure circuit quality:
 
 ```python
-# Different strategies for different use cases
-quality_first = ScoringWeights(2.0, 1.5, 1.5, 0.2)
-speed_first = ScoringWeights(0.5, 0.8, 0.5, 3.0)
+# Circuit is transpiled to each backend with optimization_level=2
+transpiled = transpile(circuit, backend, optimization_level=2)
+# Score is calculated as negative sum of all error rates
+score = -total_error  # Higher (less negative) is better
 ```
+
+**Rationale**: Transpilation reveals the actual qubits and gates that will be used, providing more accurate quality estimates than generic backend metrics.
+
+**Fractional Gates**: To compare fractional vs standard gates, pass both backend versions in your list. Each is scored independently.
+
+### 2. Multiple Run Averaging
+
+Each backend is scored 3 times with independent transpilations:
+
+```python
+scores = [transpile_and_score() for _ in range(3)]
+final_score = mean(scores)
+```
+
+**Rationale**: Transpilation can produce different layouts. Averaging provides stability and reduces sensitivity to single unlucky transpilations.
 
 ### 2. Builder Pattern
 
@@ -321,21 +366,26 @@ if any(w < 0 for w in [fidelity_w, connectivity_w, coherence_w, queue_w]):
 
 ## Extensibility
 
-### Adding New Scoring Factors
+### Improving Scoring Accuracy
 
-1. Add weight to `ScoringWeights`:
+The current transpilation-based scoring can be enhanced:
+
+1. **Add more transpilation runs**: Increase from 3 to 5+ runs for better averaging
    ```python
-   new_factor_weight: float = 1.0
+   for run_num in range(5):  # Currently 3
+       transpiled = transpile(circuit, backend=backend, optimization_level=2)
    ```
 
-2. Calculate score in `CircuitScorer`:
+2. **Add error mitigation analysis**: Factor in error mitigation capabilities
    ```python
-   new_score = calculate_new_factor(backend, circuit)
+   if backend.supports_error_mitigation:
+       score_adjustment = calculate_mitigation_benefit()
    ```
 
-3. Include in composite score:
+3. **Consider additional metrics**: Add queue time, gate set richness, etc.
    ```python
-   total += new_score * weights.new_factor_weight
+   queue_penalty = calculate_queue_impact(backend.status().pending_jobs)
+   adjusted_score = base_score - queue_penalty
    ```
 
 ### Supporting New Backend Types

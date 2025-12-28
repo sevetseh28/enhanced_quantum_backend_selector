@@ -1,0 +1,115 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Serve Documentation",
+      "type": "shell",
+      "command": "cd enhanced-quantum-backend-selector && poetry run mkdocs serve",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "focus": false,
+        "clear": true
+      },
+      "runOptions": {
+        "instanceLimit": 1
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Build Documentation",
+      "type": "shell",
+      "command": "cd enhanced-quantum-backend-selector && poetry run mkdocs build --clean",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Run Tests",
+      "type": "shell",
+      "command": "cd enhanced-quantum-backend-selector && poetry run pytest -v",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Run Tests with Coverage",
+      "type": "shell",
+      "command": "cd enhanced-quantum-backend-selector && poetry run pytest --cov=src/enhanced_quantum_backend_selector --cov-report=term-missing --cov-report=html",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Lint (Ruff)",
+      "type": "shell",
+      "command": "cd enhanced-quantum-backend-selector && poetry run ruff check .",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Format (Ruff)",
+      "type": "shell",
+      "command": "cd enhanced-quantum-backend-selector && poetry run ruff format .",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    },
+    {
+      "label": "Type Check (Mypy)",
+      "type": "shell",
+      "command": "cd enhanced-quantum-backend-selector && poetry run mypy src/enhanced_quantum_backend_selector",
+      "problemMatcher": [],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "focus": false
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      }
+    }
+  ]
+}

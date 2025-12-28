@@ -114,21 +114,38 @@ The recommendation includes detailed information:
 ```python
 # Overall metrics
 print(f"Rank: #{recommendation.rank}")
-print(f"Score: {recommendation.score_data.score:.3f}")
+print(f"Score: {recommendation.score_data.score:.3f}")  # Negative error sum
+print(f"Compatible: {recommendation.score_data.compatible}")
 
-# Score breakdown
-print("\nScore Components:")
-print(f"  Gate Fidelity:  {recommendation.score_data.gate_fidelity_score:.3f}")
-print(f"  Connectivity:   {recommendation.score_data.connectivity_score:.3f}")
-print(f"  Coherence:      {recommendation.score_data.coherence_score:.3f}")
-print(f"  Queue Time:     {recommendation.score_data.queue_score:.3f}")
+# Human-readable explanation
+for reason in recommendation.score_data.reasons:
+    print(f"  • {reason}")
 
 # Backend specifications
 print("\nBackend Details:")
-print(f"  Num Qubits:     {recommendation.metrics.num_qubits}")
-print(f"  Coupling Edges: {len(recommendation.metrics.coupling_map)}")
-print(f"  Avg T1 Time:    {recommendation.metrics.t1_avg:.2e} seconds")
+print(f"  Num Qubits:     {recommendation.backend.num_qubits}")
+# Get connectivity from backend target
+coupling_map = recommendation.backend.target.build_coupling_map()
+num_edges = len(coupling_map.get_edges()) if coupling_map else 0
+print(f"  Connectivity:   {num_edges} edges")
+# Access qubit properties for T1/T2 times
+if recommendation.backend.target.qubit_properties:
+    t1_values = [p.t1 for p in recommendation.backend.target.qubit_properties if p.t1 is not None]
+    if t1_values:
+        avg_t1 = sum(t1_values) / len(t1_values)
+        print(f"  Avg T1 Time:    {avg_t1:.2e} seconds")
 ```
+
+**Understanding Scores:**
+
+- Score is the **negative sum of all errors**: `score = -total_error`
+- **Higher scores are better** (less negative = lower error)
+- Example: `-0.01` (1% error) is better than `-0.05` (5% error)
+- Score is calculated by:
+  1. Transpiling your circuit to the backend (optimization level 2)
+  2. Summing all error rates for the qubits used in the transpiled circuit
+  3. Averaging over multiple independent transpilation runs (default: 3, configurable)
+  4. For chemistry circuits, include both standard and fractional gate versions in your backends list to compare
 
 ### 5. Execute Your Circuit
 

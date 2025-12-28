@@ -1,6 +1,6 @@
 # Enhanced Quantum Backend Selector
 
-Intelligent quantum backend selection for Qiskit circuits using multi-criteria analysis.
+Intelligent quantum backend selection for Qiskit circuits using transpilation-based error analysis.
 
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/sevetseh28/enhanced_quantum_backend_selector)
 [![Coverage](https://img.shields.io/badge/coverage->80%25-brightgreen.svg)](https://github.com/sevetseh28/enhanced_quantum_backend_selector)
@@ -10,12 +10,13 @@ Intelligent quantum backend selection for Qiskit circuits using multi-criteria a
 
 ## Overview
 
-Quantum computing users typically rely on simplistic backend selection methods like `least_busy()`, which only considers queue depth. This library provides intelligent backend selection by analyzing multiple quality factors:
+Quantum computing users typically rely on simplistic backend selection methods like `least_busy()`, which only considers queue depth. This library provides intelligent backend selection by **transpiling your circuit to each backend** and calculating the actual expected error rates:
 
-- **Gate Fidelity**: Single-qubit, two-qubit, and readout error rates
-- **Connectivity**: Topology match with circuit requirements  
-- **Coherence**: T1/T2 times for circuit depth
-- **Availability**: Queue depth and operational status
+- **Transpilation-Based**: Circuits are transpiled to each backend's native gate set
+- **Real Error Calculation**: Sums actual error rates for the specific qubits and gates used
+- **Multiple Runs**: Averages over multiple transpilation runs for stability (default: 3, configurable)
+- **Fractional Gates Support**: Evaluates both standard and fractional gates (ideal for chemistry circuits)
+- **Direct Quality Metric**: Score = negative total error (higher is better)
 
 ## Quick Start
 
@@ -40,14 +41,16 @@ selector = BackendSelector(backends)
 best = selector.select_backend(qc)
 
 print(f"Recommended: {best.backend.name}")
-print(f"Score: {best.score_data.score:.2f}")
+print(f"Score: {best.score_data.score:.3f}")  # Negative error sum
+print(f"Expected error: {-best.score_data.score:.2%}")  # As percentage
 ```
 
 ## Key Features
 
-- ✅ **Multi-Criteria Scoring**: Considers fidelity, connectivity, coherence, and availability
+- ✅ **Transpilation-Based Scoring**: Calculates actual error rates for your specific circuit
+- ✅ **Fractional Gates Support**: Automatically evaluates with/without fractional gates
 - ✅ **Provider Agnostic**: Works with any Qiskit BackendV2 provider
-- ✅ **Customizable Weights**: Adjust scoring priorities for your use case
+- ✅ **Multiple Run Averaging**: Configurable transpilation runs (default: 3) for stable scoring
 - ✅ **Smart Caching**: 1-hour TTL cache minimizes backend queries
 - ✅ **Parallel Processing**: Scores multiple backends concurrently
 - ✅ **Type Safe**: Full mypy strict mode compliance
@@ -67,14 +70,14 @@ backend = least_busy(backends)
 
 ### The Enhanced Approach
 
-Our multi-criteria analysis:
+Our transpilation-based analysis:
 
 ```python
 selector = BackendSelector(backends)
 backend = selector.select_backend(circuit)
 ```
 
-**Considers all quality factors** with intelligent weighting to find the truly best backend for your specific circuit.
+**Transpiles your circuit to each backend** and calculates the actual expected error based on the specific qubits and gates that will be used. Provides a realistic quality estimate, not generic metrics.
 
 ## Installation
 

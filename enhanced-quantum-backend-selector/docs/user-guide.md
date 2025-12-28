@@ -4,12 +4,12 @@ This guide covers all features of the Enhanced Quantum Backend Selector and how 
 
 ## Overview
 
-The library provides intelligent backend selection through multi-criteria analysis. Instead of simply choosing the least busy backend, it considers:
+The library provides intelligent backend selection through **transpilation-based error analysis**. Instead of simply choosing the least busy backend or using generic backend metrics, it:
 
-1. **Gate Fidelity** - Quality of quantum operations
-2. **Connectivity** - Topology match with circuit requirements
-3. **Coherence** - T1/T2 times relative to circuit depth
-4. **Availability** - Queue depth and operational status
+1. **Transpiles** your circuit to each backend's native gate set
+2. **Calculates** the total expected error from all qubits and gates used
+3. **Averages** over multiple independent transpilation runs for stability (default: 3, configurable)
+4. **Ranks** backends by their actual expected error for your specific circuit
 
 ## Basic Usage
 
@@ -44,122 +44,94 @@ backend = recommendation.backend
 
 ### Overall Score
 
-The overall score is a weighted combination of four component scores:
+The score is based on **transpilation-based error estimation**:
 
-```python
-score = (
-    fidelity_score * fidelity_weight +
-    connectivity_score * connectivity_weight +
-    coherence_score * coherence_weight +
-    queue_score * queue_weight
-)
-```
+1. **Circuit is transpiled** to the backend's native gate set with optimization level 2
+2. **Total error is calculated** by summing errors for each gate operation in the transpiled circuit:
+   - Each single-qubit gate contributes its error rate
+   - Each two-qubit gate contributes its error rate
+   - Each qubit's readout error is counted once
+3. **Score is averaged** over multiple independent transpilation runs (default: 3, configurable)
+4. **Score is negative** of the total error: `score = -total_error`
 
-Higher scores indicate better backends for the given circuit.
+**Higher scores are better** (less negative = lower error):
+- Score of `-0.01` is better than `-0.05`
+- Lower error means higher quality execution
 
-### Score Components
+### Why Transpilation-Based?
 
-Each component is normalized to [0, 1]:
+Transpiling the circuit to the backend reveals:
+- Which specific qubits will be used
+- Exact gate decompositions needed
+- Real error rates for the actual execution path
 
-**Gate Fidelity Score** - Based on error rates:
-- Single-qubit gate errors
-- Two-qubit gate errors  
-- Readout errors
+This provides a more accurate quality estimate than generic backend metrics.
 
-**Connectivity Score** - Based on topology match:
-- Number of edges in coupling map
-- Compatibility with circuit connectivity requirements
+### Multiple Transpilation Runs
 
-**Coherence Score** - Based on decoherence times:
-- T1 (relaxation) times
-- T2 (dephasing) times
-- Relative to circuit depth
-
-**Queue Score** - Based on availability:
-- Pending jobs in queue
-- Operational status
+Transpilation can produce different qubit layouts. Running 3 times and averaging:
+- Accounts for layout variation
+- Provides more stable scoring
+- Reduces sensitivity to single unlucky transpilations
 
 ### Interpreting Results
 
 ```python
 rec = selector.select_backend(qc)
 
-print(f"Overall Score: {rec.score_data.score:.3f}")
-print("\nBreakdown:")
-print(f"  Fidelity:     {rec.score_data.gate_fidelity_score:.3f}")
-print(f"  Connectivity: {rec.score_data.connectivity_score:.3f}")
-print(f"  Coherence:    {rec.score_data.coherence_score:.3f}")
-print(f"  Queue:        {rec.score_data.queue_score:.3f}")
+print(f"Backend: {rec.backend.name}")
+print(f"Score: {rec.score_data.score:.3f}")  # Negative error sum
+print(f"Compatible: {rec.score_data.compatible}")
 
 # Human-readable reasons
 for reason in rec.score_data.reasons:
     print(f"  • {reason}")
 ```
 
-## Custom Scoring Weights
-
-Adjust weights based on your priorities:
-
-### Default Weights
-
-```python
-from enhanced_quantum_backend_selector import ScoringWeights
-
-# These are the defaults
-default_weights = ScoringWeights(
-    gate_fidelity_weight=1.5,   # Highest priority
-    connectivity_weight=1.0,     # High priority
-    coherence_weight=0.8,        # Moderate priority
-    queue_weight=0.4,            # Lower priority
-)
+**Example output:**
 ```
-
-### Quality-First Strategy
-
-Prioritize result quality over execution time:
-
-```python
-quality_weights = ScoringWeights(
-    gate_fidelity_weight=2.0,   # Very high
-    connectivity_weight=1.5,     # High
-    coherence_weight=1.5,        # High
-    queue_weight=0.2,            # Very low - don't care about waiting
-)
-
-rec = selector.select_backend(qc, weights=quality_weights)
-```
-
-### Speed-First Strategy
-
-Get results as quickly as possible:
-
-```python
-speed_weights = ScoringWeights(
-    gate_fidelity_weight=0.5,    # Lower
-    connectivity_weight=0.8,     # Moderate
-    coherence_weight=0.5,        # Lower
-    queue_weight=3.0,            # Very high - minimize wait time
-)
-
-rec = selector.select_backend(qc, weights=speed_weights)
-```
-
-### Connectivity-First Strategy
-
-For circuits with complex coupling requirements:
-
-```python
-connectivity_weights = ScoringWeights(
-    gate_fidelity_weight=1.0,
-    connectivity_weight=3.0,     # Very high
-    coherence_weight=1.0,
-    queue_weight=0.5,
-)
-
-rec = selector.select_backend(qc, weights=connectivity_weights)
+Backend: ibm_kyoto
+Score: -0.0234  # Total error ~2.34%
+Compatible: True
+  • Total error on 5 qubits: 2.341234%
+  • Used qubits: [0, 1, 14, 15, 18]
+  • Average score over 3 transpilation runs: -0.023412
 ```
 
 ## Advanced Features
+
+### Fractional Gates for Chemistry Circuits
+
+For chemistry and VQE circuits, fractional gates can significantly improve results. Pass both versions in your backends list and the selector will automatically compare them:
+
+```python
+from qiskit_ibm_runtime import QiskitRuntimeService
+
+service = QiskitRuntimeService()
+
+# Get both standard and fractional versions to compare
+backends = [
+    service.backend('ibm_torino'),
+    service.backend('ibm_torino', use_fractional_gates=True),
+    service.backend('ibm_brisbane'),
+    service.backend('ibm_brisbane', use_fractional_gates=True),
+]
+
+# The selector will independently score each backend instance
+selector = BackendSelector(backends)
+rec = selector.select_backend(chemistry_circuit)
+
+# Check which configuration was selected
+for reason in rec.score_data.reasons:
+    if 'fractional' in reason.lower() or 'standard' in reason.lower():
+        print(reason)  # e.g., "Using fractional gates" or "Using standard gates"
+```
+
+**Why Fractional Gates Matter:**
+- Chemistry circuits often use rotation gates with arbitrary angles
+- Fractional gates allow more efficient compilation for these circuits
+- Can reduce circuit depth and gate count significantly
+- The selector automatically tries both and picks the better one
 
 ### Get Full Rankings
 
@@ -181,12 +153,19 @@ top_3 = selector.rank_backends(qc, top_n=3)
 Require backends to meet a quality threshold:
 
 ```python
+# Since scores are negative errors, use negative thresholds
+# -0.1 means max 10% total error, -0.05 means max 5% error
 try:
-    rec = selector.select_backend(qc, min_score=0.5)
+    rec = selector.select_backend(qc, min_score=-0.1)  # Max 10% error
     print(f"Selected: {rec.backend.name}")
+    print(f"Score: {rec.score_data.score:.3f}")
 except ValueError as e:
     print(f"No backends met minimum score: {e}")
 ```
+
+**Note:** Remember scores are negative. A higher (less negative) score is better:
+- `-0.01` passes `min_score=-0.05` threshold ✓
+- `-0.08` fails `min_score=-0.05` threshold ✗
 
 ### Compatibility Checking
 
@@ -243,6 +222,26 @@ Multiple backends are scored in parallel (up to 10 workers):
 selector = BackendSelector(backends)  # All backends scored in parallel
 ```
 
+### Configuring Transpilation Runs
+
+Adjust the accuracy-performance trade-off by configuring transpilation runs:
+
+```python
+# Default: 3 runs (balanced accuracy and speed)
+selector = BackendSelector(backends)
+
+# Fast: 1 run (faster but less stable scores)
+selector_fast = BackendSelector(backends, transpilation_runs=1)
+
+# Accurate: 5+ runs (more stable scores but slower)
+selector_accurate = BackendSelector(backends, transpilation_runs=5)
+```
+
+**Trade-offs:**
+- **More runs**: More accurate/stable scores, but slower
+- **Fewer runs**: Faster scoring, but scores may vary more between calls
+- **Recommended**: 3 runs (default) for most use cases
+
 ## Best Practices
 
 ### 1. Choose Appropriate Weights
@@ -286,20 +285,16 @@ for reason in rec.score_data.reasons:
     print(f"  • {reason}")
 ```
 
-### 4. Compare Multiple Strategies
+### 4. Compare Multiple Backends
 
-Test different weight configurations:
+Compare top-ranked backends:
 
 ```python
-strategies = {
-    "Quality": quality_weights,
-    "Speed": speed_weights,
-    "Balanced": ScoringWeights(),  # defaults
-}
+top_5 = selector.rank_backends(qc, top_n=5)
 
-for name, weights in strategies.items():
-    rec = selector.select_backend(qc, weights=weights)
-    print(f"{name}: {rec.backend.name} ({rec.score_data.score:.3f})")
+for rec in top_5:
+    error_pct = -rec.score_data.score * 100
+    print(f"#{rec.rank}: {rec.backend.name} - Error: {error_pct:.2f}%")
 ```
 
 ### 5. Monitor Backend Status
@@ -321,28 +316,26 @@ if not rec.metrics.operational:
 ### Production Pipeline
 
 ```python
-from enhanced_quantum_backend_selector import BackendSelector, ScoringWeights
+from enhanced_quantum_backend_selector import BackendSelector
 
 def select_production_backend(circuit, backends):
     """Select backend for production workload."""
     selector = BackendSelector(backends)
     
-    # Balanced weights with quality preference
-    weights = ScoringWeights(
-        gate_fidelity_weight=1.5,
-        connectivity_weight=1.2,
-        coherence_weight=1.0,
-        queue_weight=0.6,
-    )
-    
     try:
         rec = selector.select_backend(
             circuit,
-            weights=weights,
             require_compatible=True,
-            min_score=0.4,
         )
-        return rec.backend
+        
+        # Check if error rate is acceptable
+        expected_error = -rec.score_data.score
+        if expected_error < 0.10:  # Less than 10% error
+            return rec.backend
+        else:
+            print(f"Warning: Best backend has {expected_error*100:.1f}% error")
+            return rec.backend
+            
     except ValueError:
         # Fallback to least busy
         return least_busy(backends)
@@ -355,20 +348,13 @@ def select_research_backend(circuit, backends):
     """Select highest quality backend for research."""
     selector = BackendSelector(backends)
     
-    # Maximum quality
-    weights = ScoringWeights(
-        gate_fidelity_weight=2.0,
-        connectivity_weight=1.5,
-        coherence_weight=1.8,
-        queue_weight=0.1,
-    )
-    
-    rankings = selector.rank_backends(circuit, weights=weights)
+    rankings = selector.rank_backends(circuit, top_n=3)
     
     # Report top 3 for comparison
     print("Top 3 backends for research:")
-    for rec in rankings[:3]:
-        print(f"  {rec.rank}. {rec.backend.name}: {rec.score_data.score:.3f}")
+    for rec in rankings:
+        error_pct = -rec.score_data.score * 100
+        print(f"  #{rec.rank}. {rec.backend.name}: {rec.score_data.score:.4f} ({error_pct:.2f}% error)")
     
     return rankings[0].backend
 ```
@@ -376,24 +362,18 @@ def select_research_backend(circuit, backends):
 ### Batch Job Optimization
 
 ```python
-def select_backends_for_batch(circuits, backends, strategy="balanced"):
+def select_backends_for_batch(circuits, backends):
     """Select optimal backends for multiple circuits."""
     selector = BackendSelector(backends)
     
-    strategies = {
-        "quality": ScoringWeights(2.0, 1.5, 1.5, 0.2),
-        "speed": ScoringWeights(0.5, 0.8, 0.5, 3.0),
-        "balanced": ScoringWeights(),
-    }
-    
-    weights = strategies[strategy]
     selections = {}
     
     for i, circuit in enumerate(circuits):
-        rec = selector.select_backend(circuit, weights=weights)
+        rec = selector.select_backend(circuit)
         selections[f"circuit_{i}"] = {
             "backend": rec.backend.name,
             "score": rec.score_data.score,
+            "error_pct": -rec.score_data.score * 100,
             "rank": rec.rank,
         }
     
@@ -402,7 +382,6 @@ def select_backends_for_batch(circuits, backends, strategy="balanced"):
 
 ## Next Steps
 
-- [Scoring Weights Guide](user-guide/scoring-weights.md) - Deep dive into weight configuration
-- [Backend Selection Guide](user-guide/backend-selection.md) - Advanced selection strategies
-- [Best Practices](user-guide/best-practices.md) - Production tips and patterns
+- [Examples](examples.md) - Practical code examples and use cases
 - [API Reference](api-reference.md) - Complete API documentation
+- [Architecture](architecture.md) - Design and implementation details

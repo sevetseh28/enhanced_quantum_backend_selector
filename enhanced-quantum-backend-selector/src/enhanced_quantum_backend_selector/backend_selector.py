@@ -7,16 +7,14 @@ based on circuit requirements and multi-criteria scoring.
 
 from __future__ import annotations
 
-import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import Dict, List, Optional, Tuple
 
+from qiskit import transpile
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
-from enhanced_quantum_backend_selector.exploration.backend_analyzer import BackendAnalyzer
-from enhanced_quantum_backend_selector.models import BackendMetrics, BackendRecommendation, CircuitScore
-from enhanced_quantum_backend_selector.scoring_weights import ScoringWeights
+from enhanced_quantum_backend_selector.backend_analyzer import BackendAnalyzer
+from enhanced_quantum_backend_selector.models import BackendRecommendation, CircuitScore
 
 
 class BackendSelector:
@@ -56,47 +54,66 @@ class BackendSelector:
         ...     print(f"{i}. {rec.backend.name}: {rec.score_data.score:.2f}")
     """
 
-    # Cache TTL: 1 hour (backend calibrations change slowly)
-    CACHE_TTL_SECONDS: float = 3600.0
-
-    def __init__(self, backends: List[BackendV2]) -> None:
+    def __init__(
+        self,
+        backends: list[BackendV2],
+        transpilation_runs: int = 3,
+    ) -> None:
         """
         Initialize the backend selector.
 
+        For chemistry circuits, you can include both standard and fractional gate
+        versions of the same backend to let the selector choose the best one:
+
+        ```python
+        backends = [
+            service.backend('ibm_torino'),  # Standard gates
+            service.backend('ibm_torino', use_fractional_gates=True),  # Fractional gates
+            # ... other backends
+        ]
+        selector = BackendSelector(backends)
+        ```
+
         Args:
-            backends: List of BackendV2 instances to select from.
+            backends: List of BackendV2 instances to select from. Can include
+                multiple versions of the same backend with different configurations.
+            transpilation_runs: Number of times to transpile each circuit for
+                averaging (default: 3). Higher values improve accuracy but increase
+                computation time. Must be at least 1.
 
         Raises:
-            ValueError: If backends list is empty.
+            ValueError: If backends list is empty or transpilation_runs < 1.
         """
         if not backends:
             raise ValueError("backends list cannot be empty")
 
+        if transpilation_runs < 1:
+            raise ValueError("transpilation_runs must be at least 1")
+
         self.backends = backends
-        self._metrics_cache: Dict[str, Tuple[BackendMetrics, float]] = {}
-        self._analyzer_cache: Dict[str, BackendAnalyzer] = {}
+        self.transpilation_runs = transpilation_runs
+        self._analyzer_cache: dict[str, BackendAnalyzer] = {}
 
     def select_backend(
         self,
         circuit: QuantumCircuit,
-        weights: Optional[ScoringWeights] = None,
         require_compatible: bool = True,
-        min_score: Optional[float] = None,
+        min_score: float | None = None,
     ) -> BackendRecommendation:
         """
         Select the best backend for a quantum circuit.
 
         Ranks all backends and returns the top recommendation based on
-        multi-criteria scoring.
+        transpilation-based error analysis.
 
         Args:
             circuit: The quantum circuit to execute.
-            weights: Custom scoring weights. If None, uses defaults.
             require_compatible: Only consider compatible backends (sufficient
                 qubits, supported gates). If True and no compatible backends
                 exist, raises an exception.
-            min_score: Minimum acceptable score (0-100). Backends below this
-                threshold are excluded.
+            min_score: Minimum acceptable score. Backends below this
+                threshold are excluded. Note: scores are negative (error sums),
+                so -0.01 is better than -0.05.
 
         Returns:
             BackendRecommendation with the highest-scored backend and details.
@@ -109,12 +126,8 @@ class BackendSelector:
             >>> # Simple selection
             >>> best = selector.select_backend(circuit)
             >>>
-            >>> # With custom weights (prioritize fast execution)
-            >>> fast_weights = ScoringWeights(queue_weight=2.0)
-            >>> best = selector.select_backend(circuit, weights=fast_weights)
-            >>>
-            >>> # With minimum quality threshold
-            >>> best = selector.select_backend(circuit, min_score=75.0)
+            >>> # With minimum quality threshold (< 5% expected error)
+            >>> best = selector.select_backend(circuit, min_score=-0.05)
         """
         if circuit.num_qubits == 0:
             raise ValueError("Circuit must have at least one qubit")
@@ -123,16 +136,17 @@ class BackendSelector:
             raise ValueError("Circuit has no operations")
 
         # Rank all backends
-        ranked = self.rank_backends(circuit, weights=weights)
+        ranked = self.rank_backends(circuit)
 
         # Filter by compatibility if required
         if require_compatible:
             ranked = [r for r in ranked if r.score_data.compatible]
             if not ranked:
+                gates = {instr.operation.name for instr in circuit.data}
                 raise RuntimeError(
                     "No compatible backends found. "
                     f"Circuit requires {circuit.num_qubits} qubits and "
-                    f"uses gates: {set(instr.operation.name for instr in circuit.data)}"
+                    f"uses gates: {gates}"
                 )
 
         # Filter by minimum score if specified
@@ -149,24 +163,22 @@ class BackendSelector:
     def rank_backends(
         self,
         circuit: QuantumCircuit,
-        weights: Optional[ScoringWeights] = None,
-        top_n: Optional[int] = None,
-    ) -> List[BackendRecommendation]:
+        top_n: int | None = None,
+    ) -> list[BackendRecommendation]:
         """
         Rank all backends for a quantum circuit.
 
-        Analyzes each backend against circuit requirements using multi-criteria
-        scoring. Backends are sorted by total score in descending order.
+        Analyzes each backend against circuit requirements using transpilation-based
+        error analysis. Backends are sorted by score (highest/least negative first).
 
         Args:
             circuit: The quantum circuit to analyze and match against backends.
-            weights: Custom scoring weights for criteria. If None, uses defaults
-                (fidelity=1.5, connectivity=1.0, coherence=0.8, queue=0.4).
             top_n: Return only the top N results. If None, returns all.
 
         Returns:
             List of BackendRecommendation objects sorted by score (highest first).
             Each recommendation includes backend reference, scores, metrics, and rank.
+            Scores are negative error sums where higher (less negative) is better.
 
         Raises:
             ValueError: If circuit is empty or has no operations.
@@ -175,11 +187,11 @@ class BackendSelector:
             >>> # Rank all backends
             >>> ranked = selector.rank_backends(circuit)
             >>> for rec in ranked[:5]:
-            ...     print(f"{rec.rank}. {rec.backend.name}: {rec.score_data.score:.2f}")
+            ...     error_pct = -rec.score_data.score * 100
+            ...     print(f"#{rec.rank}. {rec.backend.name}: {error_pct:.2f}% error")
             >>>
-            >>> # Get top 3 with custom weights
-            >>> weights = ScoringWeights(gate_fidelity_weight=3.0)
-            >>> top3 = selector.rank_backends(circuit, weights=weights, top_n=3)
+            >>> # Get top 3 only
+            >>> top3 = selector.rank_backends(circuit, top_n=3)
         """
         if circuit.num_qubits == 0:
             raise ValueError("Circuit must have at least one qubit")
@@ -187,11 +199,8 @@ class BackendSelector:
         if len(circuit.data) == 0:
             raise ValueError("Circuit has no operations")
 
-        if weights is None:
-            weights = ScoringWeights()
-
         # Score backends in parallel for performance
-        recommendations = self._score_backends_parallel(circuit, weights)
+        recommendations = self._score_backends_parallel(circuit)
 
         # Sort by score (descending)
         recommendations.sort(key=lambda r: r.score_data.score, reverse=True)
@@ -208,7 +217,7 @@ class BackendSelector:
 
     def clear_cache(self) -> None:
         """
-        Clear the metrics cache to force fresh backend queries.
+        Clear the analyzer cache to force fresh backend analysis.
 
         Useful when backend calibrations have been updated or when you want
         to ensure the latest backend information is used.
@@ -217,24 +226,25 @@ class BackendSelector:
             >>> selector.clear_cache()  # Force refresh on next ranking
             >>> fresh_rankings = selector.rank_backends(circuit)
         """
-        self._metrics_cache.clear()
+        self._analyzer_cache.clear()
 
     def _score_backends_parallel(
         self,
         circuit: QuantumCircuit,
-        weights: ScoringWeights,
-    ) -> List[BackendRecommendation]:
+    ) -> list[BackendRecommendation]:
         """
         Score backends in parallel using ThreadPoolExecutor.
 
+        Each backend is automatically evaluated with both standard and fractional
+        gate configurations, keeping the best result.
+
         Args:
             circuit: The quantum circuit to score against.
-            weights: Scoring weights to apply.
 
         Returns:
             List of BackendRecommendation objects (unranked).
         """
-        recommendations: List[BackendRecommendation] = []
+        recommendations: list[BackendRecommendation] = []
 
         # Use ThreadPoolExecutor for parallel scoring (max 10 workers)
         max_workers = min(10, len(self.backends))
@@ -242,7 +252,7 @@ class BackendSelector:
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             # Submit all scoring tasks
             future_to_backend = {
-                executor.submit(self._score_single_backend, backend, circuit, weights): backend
+                executor.submit(self._score_single_backend, backend, circuit): backend
                 for backend in self.backends
             }
 
@@ -262,15 +272,16 @@ class BackendSelector:
         self,
         backend: BackendV2,
         circuit: QuantumCircuit,
-        weights: ScoringWeights,
     ) -> BackendRecommendation:
         """
         Score a single backend for the circuit.
 
+        Transpiles the circuit multiple times (since transpilation is stochastic)
+        and averages the scores to get a more accurate assessment.
+
         Args:
             backend: The backend to score.
             circuit: The circuit to score against.
-            weights: Scoring weights to apply.
 
         Returns:
             BackendRecommendation for this backend.
@@ -278,20 +289,48 @@ class BackendSelector:
         # Get or create analyzer
         analyzer = self._get_analyzer(backend)
 
-        # Get cached or fresh metrics
-        metrics = self._get_metrics(analyzer)
+        # Transpile and score multiple times, then average
+        scores = []
+        all_reasons = []
 
-        # Score the circuit
-        score_data = analyzer.score_for_circuit(circuit)
+        for run_num in range(self.transpilation_runs):
+            # Transpile the circuit to this backend
+            # Each run may produce different results due to stochastic nature
+            transpiled = transpile(circuit, backend=backend, optimization_level=2)
 
-        # Apply weights to score (simplified - could be more sophisticated)
-        # This is a placeholder - actual implementation would use weights
-        # to adjust individual criterion scores before combining
+            # Score the transpiled circuit
+            score_data = analyzer.score_for_circuit(transpiled)
+            scores.append(score_data.score)
+
+            # Collect reasons from first run only to avoid duplication
+            if run_num == 0:
+                all_reasons = score_data.reasons.copy()
+
+        # Calculate average score
+        avg_score = sum(scores) / len(scores)
+
+        # Detect if this backend uses fractional gates
+        # Expected backend API: backends supporting fractional gates should have
+        # a boolean attribute `use_fractional_gates` set to True
+        # (set via service.backend(name, use_fractional_gates=True))
+        has_fractional = getattr(backend, "use_fractional_gates", False)
+
+        # Create averaged score data
+        gate_note = "Using fractional gates" if has_fractional else "Using standard gates"
+        averaged_score_data = CircuitScore(
+            backend=backend.name,
+            compatible=True,  # If transpilation succeeded, it's compatible
+            reasons=all_reasons
+            + [
+                f"Average score over {self.transpilation_runs} transpilation runs: {avg_score:.6f}",
+                gate_note,
+            ],
+            score=avg_score,
+        )
 
         return BackendRecommendation(
             backend=backend,
-            score_data=score_data,
-            metrics=metrics,
+            score_data=averaged_score_data,
             rank=0,  # Will be assigned during ranking
         )
 
@@ -309,35 +348,3 @@ class BackendSelector:
             self._analyzer_cache[backend.name] = BackendAnalyzer(backend)
 
         return self._analyzer_cache[backend.name]
-
-    def _get_metrics(self, analyzer: BackendAnalyzer) -> BackendMetrics:
-        """
-        Get cached or extract fresh metrics for a backend.
-
-        Implements 1-hour TTL caching to minimize backend queries.
-
-        Args:
-            analyzer: The BackendAnalyzer instance.
-
-        Returns:
-            BackendMetrics for the backend.
-        """
-        backend_name = analyzer.backend.name
-        current_time = time.time()
-
-        # Check cache
-        if backend_name in self._metrics_cache:
-            cached_metrics, timestamp = self._metrics_cache[backend_name]
-            age = current_time - timestamp
-
-            # Return cached if still valid (within TTL)
-            if age < self.CACHE_TTL_SECONDS:
-                return cached_metrics
-
-        # Extract fresh metrics
-        metrics = analyzer.extract_metrics()
-
-        # Update cache
-        self._metrics_cache[backend_name] = (metrics, current_time)
-
-        return metrics

@@ -121,16 +121,16 @@ poetry run pytest --cov=enhanced_quantum_backend_selector --cov-report=term-miss
 def select_backend(
     self,
     circuit: QuantumCircuit,
-    weights: ScoringWeights | None = None,
+    require_compatible: bool = True,
 ) -> BackendRecommendation:
     """Select the best backend for a quantum circuit.
     
     This method analyzes all available backends and returns the one
-    with the highest composite score based on the provided weights.
+    with the highest score based on transpilation-based error analysis.
     
     Args:
-        circuit: The quantum circuit to execute
-        weights: Optional custom scoring weights. If None, uses defaults.
+        circuit: The quantum circuit to execute.
+        require_compatible: Only consider compatible backends.
         
     Returns:
         A BackendRecommendation containing the selected backend and
@@ -174,9 +174,9 @@ enhanced-quantum-backend-selector/
 │   └── enhanced_quantum_backend_selector/
 │       ├── __init__.py           # Public API exports
 │       ├── backend_selector.py   # Main BackendSelector class
-│       ├── scoring_weights.py    # ScoringWeights configuration
-│       ├── models.py              # Data models
-│       └── exploration/           # Internal analysis modules
+│       ├── backend_analyzer.py   # Backend analysis
+│       ├── circuit_scorer.py     # Circuit scoring
+│       └── models.py              # Data models
 ├── tests/
 │   ├── fixtures/                  # Test fixtures
 │   ├── test_backend_selector.py   # Unit tests
