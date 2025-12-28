@@ -54,13 +54,10 @@ class BackendSelector:
         ...     print(f"{i}. {rec.backend.name}: {rec.score_data.score:.2f}")
     """
 
-    # Number of transpilation runs for averaging (higher = more accurate but slower)
-    DEFAULT_TRANSPILATION_RUNS: int = 3
-
     def __init__(
         self,
         backends: list[BackendV2],
-        transpilation_runs: int | None = None,
+        transpilation_runs: int = 3,
     ) -> None:
         """
         Initialize the backend selector.
@@ -90,15 +87,11 @@ class BackendSelector:
         if not backends:
             raise ValueError("backends list cannot be empty")
 
-        if transpilation_runs is not None and transpilation_runs < 1:
+        if transpilation_runs < 1:
             raise ValueError("transpilation_runs must be at least 1")
 
         self.backends = backends
-        self.transpilation_runs = (
-            transpilation_runs
-            if transpilation_runs is not None
-            else self.DEFAULT_TRANSPILATION_RUNS
-        )
+        self.transpilation_runs = transpilation_runs
         self._analyzer_cache: dict[str, BackendAnalyzer] = {}
 
     def select_backend(

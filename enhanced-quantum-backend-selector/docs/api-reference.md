@@ -21,7 +21,7 @@ from enhanced_quantum_backend_selector import BackendSelector
 
 selector = BackendSelector(
     backends: List[BackendV2],
-    transpilation_runs: int | None = None
+    transpilation_runs: int = 3
 )
 ```
 
