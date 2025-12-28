@@ -13,6 +13,14 @@ from qiskit.providers.fake_provider import GenericBackendV2
 from enhanced_quantum_backend_selector import BackendSelector
 
 
+def print_metric(label: str, value: float | None, format_spec: str = ".2e") -> None:
+    """Print a metric with conditional N/A handling."""
+    if value:
+        print(f"    {label:<16}{value:{format_spec}}")
+    else:
+        print(f"    {label:<16}N/A")
+
+
 def main() -> None:
     """Run basic backend selection example."""
     print("=" * 70)
@@ -65,18 +73,9 @@ def main() -> None:
         print("  Backend Metrics:")
         print(f"    Num Qubits:     {recommendation.metrics.num_qubits}")
         print(f"    Connectivity:   {recommendation.metrics.num_edges} edges")
-        if recommendation.metrics.avg_t1:
-            print(f"    Avg T1 Time:    {recommendation.metrics.avg_t1:.2e} seconds")
-        else:
-            print("    Avg T1 Time:    N/A")
-        if recommendation.metrics.avg_t2:
-            print(f"    Avg T2 Time:    {recommendation.metrics.avg_t2:.2e} seconds")
-        else:
-            print("    Avg T2 Time:    N/A")
-        if recommendation.metrics.avg_readout_error:
-            print(f"    Readout Error:  {recommendation.metrics.avg_readout_error:.4f}")
-        else:
-            print("    Readout Error:  N/A")
+        print_metric("Avg T1 Time:", recommendation.metrics.avg_t1 and f"{recommendation.metrics.avg_t1:.2e} seconds")
+        print_metric("Avg T2 Time:", recommendation.metrics.avg_t2 and f"{recommendation.metrics.avg_t2:.2e} seconds")
+        print_metric("Readout Error:", recommendation.metrics.avg_readout_error, ".4f")
         print(f"    Operational:    {recommendation.metrics.operational}")
         print()
 
