@@ -109,8 +109,7 @@ After a successful release, the **Publish to PyPI** workflow automatically:
 1. Checks out the tagged release
 2. Runs tests to ensure quality
 3. Builds the package using Poetry (`poetry build`)
-4. Validates the distribution with `twine check`
-5. Publishes to PyPI using [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
+4. Publishes to PyPI using [Trusted Publishing](https://docs.pypi.org/trusted-publishers/)
 
 ### 2. TestPyPI for Testing
 
@@ -137,9 +136,6 @@ cd enhanced-quantum-backend-selector
 
 # Build the package
 poetry build
-
-# Check distribution
-poetry run twine check dist/*
 
 # Publish to TestPyPI first (test)
 poetry publish -r testpypi
