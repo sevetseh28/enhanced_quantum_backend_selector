@@ -9,7 +9,7 @@ This project uses **automated semantic versioning** and **continuous deployment*
 ### Key Technologies
 
 - **[Poetry](https://python-poetry.org/)**: Dependency management and package building
-- **[python-semantic-release](https://python-semantic-release.readthedocs.io/)**: Actually we use Node.js semantic-release for version management
+- **[Node.js semantic-release](https://semantic-release.gitbook.io/)**: Automated version management and release workflow
 - **[Conventional Commits](https://www.conventionalcommits.org/)**: Commit message format for automatic versioning
 - **[GitHub Actions](https://docs.github.com/en/actions)**: CI/CD automation
 - **[PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/)**: Secure, token-less publishing
@@ -124,7 +124,7 @@ You can manually test the publishing process using TestPyPI:
 
 This will publish to https://test.pypi.org/project/enhanced-quantum-backend-selector/
 
-### 3. Manual Publishing (Emergency Only)
+### Manual Publishing (Emergency Only)
 
 If automatic publishing fails, maintainers can manually publish:
 
@@ -148,7 +148,22 @@ poetry publish -r testpypi
 poetry publish
 ```
 
-**Note**: Manual publishing requires PyPI API token configured in `~/.pypirc` or via environment variables.
+**Note**: Manual publishing requires PyPI API token configured:
+- In `~/.pypirc` (recommended):
+  ```ini
+  [pypi]
+  username = __token__
+  password = pypi-YOUR-API-TOKEN
+  
+  [testpypi]
+  username = __token__
+  password = pypi-YOUR-TEST-API-TOKEN
+  ```
+- Or via environment variables:
+  ```bash
+  export POETRY_PYPI_TOKEN_PYPI=pypi-YOUR-API-TOKEN
+  export POETRY_PYPI_TOKEN_TESTPYPI=pypi-YOUR-TEST-API-TOKEN
+  ```
 
 ## Required GitHub Secrets and Configuration
 

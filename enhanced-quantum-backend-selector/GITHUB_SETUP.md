@@ -177,15 +177,29 @@ For projects not yet published to PyPI:
 4. Click **Add**
 5. The publisher will be activated on first successful publish
 
-**Option 2: Manual First Publish**
+**Option 2: Manual First Publish** (only if pending publisher is not available)
 
-1. Do the first publish manually with an API token:
+1. Generate a scoped API token on PyPI
+2. Configure credentials securely (never in command line):
+   ```bash
+   # Method 1: Using .pypirc (recommended)
+   cat > ~/.pypirc << EOF
+   [pypi]
+   username = __token__
+   password = pypi-YOUR-API-TOKEN
+   EOF
+   chmod 600 ~/.pypirc
+   
+   # Method 2: Using environment variable
+   export POETRY_PYPI_TOKEN_PYPI=pypi-YOUR-API-TOKEN
+   ```
+3. Do the first publish:
    ```bash
    poetry build
-   poetry publish -u __token__ -p pypi-YOUR-API-TOKEN
+   poetry publish  # Uses credentials from .pypirc or env var
    ```
-2. Then configure Trusted Publishing as in "For Existing Projects" above
-3. Delete the API token
+4. Then configure Trusted Publishing as in "For Existing Projects" above
+5. Delete the API token from PyPI and remove from `~/.pypirc`
 
 ### Setup on TestPyPI (Testing)
 
