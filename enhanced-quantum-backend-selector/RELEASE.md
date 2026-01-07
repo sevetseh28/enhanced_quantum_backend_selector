@@ -9,7 +9,7 @@ This project uses **automated semantic versioning** and **continuous deployment*
 ### Key Technologies
 
 - **[Poetry](https://python-poetry.org/)**: Dependency management and package building
-- **[Node.js semantic-release](https://semantic-release.gitbook.io/)**: Automated version management and release workflow
+- **[python-semantic-release](https://python-semantic-release.readthedocs.io/)**: Automated version management and release workflow
 - **[Conventional Commits](https://www.conventionalcommits.org/)**: Commit message format for automatic versioning
 - **[GitHub Actions](https://docs.github.com/en/actions)**: CI/CD automation
 - **[PyPI Trusted Publishing](https://docs.pypi.org/trusted-publishers/)**: Secure, token-less publishing
@@ -264,20 +264,16 @@ Configure branch protection for `main` in **Settings** → **Branches**:
 
 ## Configuration Files
 
-### `.releaserc.json`
-Semantic-release configuration:
-- **Branches**: Only `main` triggers releases
-- **Plugins**:
-  - `@semantic-release/commit-analyzer`: Determines version bump
-  - `@semantic-release/release-notes-generator`: Generates release notes
-  - `@semantic-release/changelog`: Updates CHANGELOG.md
-  - `@semantic-release/exec`: Runs `poetry version` command
-  - `@semantic-release/git`: Commits version and changelog
-  - `@semantic-release/github`: Creates GitHub Release
-
 ### `pyproject.toml`
-Poetry and project configuration:
-- **Version**: Managed by semantic-release via `poetry version`
+Python Semantic Release and project configuration:
+- **[tool.semantic_release]**: Configuration for python-semantic-release
+  - **version_toml**: Points to project.version for automatic updates
+  - **branch**: Only `main` triggers releases
+  - **build_command**: Runs `poetry build` to create distributions
+  - **changelog_file**: Updates CHANGELOG.md
+  - **upload_to_vcs_release**: Creates GitHub releases
+  - **commit_parser_options**: Defines which commit types trigger releases
+- **Version**: Managed by python-semantic-release
 - **Build system**: `poetry-core`
 - **Dependencies**: Managed by Poetry
 - **Dev tools**: pytest, mypy, ruff, pre-commit
@@ -301,17 +297,14 @@ Create a PR and observe the test workflow.
 ### 2. Dry-run Semantic Release Locally
 
 ```bash
-# Install semantic-release dependencies
-npm install -g \
-  semantic-release@23 \
-  @semantic-release/changelog@6 \
-  @semantic-release/exec@6 \
-  @semantic-release/git@10 \
-  @semantic-release/github@10 \
-  conventional-changelog-conventionalcommits@7
+# Install python-semantic-release
+pip install python-semantic-release
+
+# Navigate to package directory
+cd enhanced-quantum-backend-selector
 
 # Run dry-run (does not publish)
-npx semantic-release --dry-run
+semantic-release version --no-commit --no-tag --no-push
 ```
 
 This shows what version would be released without actually creating it.
@@ -372,14 +365,14 @@ Use TestPyPI for safe testing:
 3. Fix any linting/type errors before merging
 
 #### Version Conflicts
-**Symptoms**: semantic-release complains about existing version
+**Symptoms**: python-semantic-release complains about existing version
 **Causes**:
 - Manual version edits in pyproject.toml
 - Re-running release for same commits
 
 **Solution**:
 - Never manually edit version in pyproject.toml
-- Let semantic-release manage versions
+- Let python-semantic-release manage versions
 - Delete problematic tags if needed: `git tag -d v0.1.0 && git push origin :refs/tags/v0.1.0`
 
 ### Viewing Logs
@@ -457,7 +450,7 @@ View on PyPI: https://pypi.org/project/enhanced-quantum-backend-selector/
 ## Additional Resources
 
 - [Poetry Documentation](https://python-poetry.org/docs/)
-- [Semantic Release Documentation](https://semantic-release.gitbook.io/semantic-release/)
+- [Python Semantic Release Documentation](https://python-semantic-release.readthedocs.io/)
 - [Conventional Commits Specification](https://www.conventionalcommits.org/)
 - [PyPI Trusted Publishing Guide](https://docs.pypi.org/trusted-publishers/)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
