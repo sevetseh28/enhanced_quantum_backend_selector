@@ -21,14 +21,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Test and build in dev container
+      - name: Run tests in dev container
         uses: devcontainers/ci@v0.3
         with:
           runCmd: |
             cd enhanced-quantum-backend-selector
             poetry install
             poetry run pytest --cov=enhanced_quantum_backend_selector --cov-fail-under=80
-            poetry build
 
       - name: Python Semantic Release
         uses: python-semantic-release/python-semantic-release@v9.17.0

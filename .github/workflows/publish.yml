@@ -3,15 +3,16 @@ name: Publish to PyPI
 on:
   release:
     types: [ published ]
-  push:
-    tags:
-      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       test-pypi:
         description: 'Publish to TestPyPI instead of PyPI'
         required: false
         default: 'true'
+      tag:
+        description: 'Tag to publish (e.g., v1.0.0)'
+        required: false
+        default: ''
 
 jobs:
   publish:
@@ -24,39 +25,31 @@ jobs:
       contents: read
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Download release artifacts
+        uses: robinraju/release-downloader@v1.11
         with:
-          fetch-depth: 0  # Required for poetry-dynamic-versioning
-
-      - name: Test and build in dev container
-        uses: devcontainers/ci@v0.3
+          tag: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+          fileName: '*.whl'
+          out-file-path: 'dist'
+          
+      - name: Download source distribution
+        uses: robinraju/release-downloader@v1.11
         with:
-          runCmd: |
-            cd enhanced-quantum-backend-selector
-            poetry install
-            poetry run pytest --cov=enhanced_quantum_backend_selector --cov-fail-under=80
-            poetry build
+          tag: ${{ github.event.inputs.tag || github.event.release.tag_name }}
+          fileName: '*.tar.gz'
+          out-file-path: 'dist'
 
       - name: Publish to TestPyPI
         if: github.event.inputs.test-pypi == 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
-          packages-dir: enhanced-quantum-backend-selector/dist/
+          packages-dir: dist/
           verbose: true
 
       - name: Publish to PyPI
-        if: (github.event_name == 'release' && github.event.action == 'published') || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+        if: github.event_name == 'release' && github.event.action == 'published'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: enhanced-quantum-backend-selector/dist/
+          packages-dir: dist/
           verbose: true
-
-      - name: Upload release artifacts
-        if: github.event_name == 'release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-dist
-          path: enhanced-quantum-backend-selector/dist/
-          retention-days: 90
