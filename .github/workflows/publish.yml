@@ -46,7 +46,7 @@ jobs:
           verbose: true
 
       - name: Publish to PyPI
-        if: github.event_name != 'workflow_dispatch' || github.event.inputs.test-pypi != 'true'
+        if: github.event_name != 'workflow_dispatch' || github.event.inputs.test-pypi == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: enhanced-quantum-backend-selector/dist/
