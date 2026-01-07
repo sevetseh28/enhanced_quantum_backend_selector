@@ -8,6 +8,9 @@ on:
 
 jobs:
   test-release:
+    permissions:
+      contents: read
+      pull-requests: read
     uses: ./.github/workflows/release-reusable.yml
     with:
       dry_run: true
