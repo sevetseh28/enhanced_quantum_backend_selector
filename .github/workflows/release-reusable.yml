@@ -13,11 +13,6 @@ jobs:
   release:
     name: ${{ inputs.dry_run && 'Test Release (Dry Run)' || 'Create Release' }}
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      id-token: write
 
     steps:
       - name: Checkout code
