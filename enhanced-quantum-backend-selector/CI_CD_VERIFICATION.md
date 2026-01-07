@@ -65,8 +65,8 @@ Use this checklist before the first production release:
 - [ ] **release.yml**
   - [ ] YAML syntax valid
   - [ ] Triggers on push to `main`
-  - [ ] `@semantic-release/exec@6` installed
-  - [ ] Poetry version command configured in `.releaserc.json`
+  - [ ] python-semantic-release GitHub Action configured
+  - [ ] Directory parameter set to `enhanced-quantum-backend-selector`
 
 - [ ] **publish.yml**
   - [ ] YAML syntax valid
@@ -87,7 +87,8 @@ Use this checklist before the first production release:
   - [ ] Assets include CHANGELOG.md and pyproject.toml
 
 - [ ] **pyproject.toml**
-  - [ ] Version field present (will be managed by semantic-release)
+  - [ ] Version field present (will be managed by python-semantic-release)
+  - [ ] [tool.semantic_release] configuration section present
   - [ ] Poetry configuration complete
   - [ ] All dependencies listed
 
@@ -133,21 +134,15 @@ Verify the pipeline works before first production release:
 
 **Option A: Local Dry Run** (recommended first)
 
-- [ ] Install semantic-release dependencies:
+- [ ] Install python-semantic-release:
   ```bash
-  npm install -g \
-    semantic-release@23 \
-    @semantic-release/changelog@6 \
-    @semantic-release/exec@6 \
-    @semantic-release/git@10 \
-    @semantic-release/github@10 \
-    conventional-changelog-conventionalcommits@7
+  pip install python-semantic-release
   ```
 
 - [ ] Run dry-run:
   ```bash
-  cd /path/to/enhanced_quantum_backend_selector
-  npx semantic-release --dry-run
+  cd /path/to/enhanced_quantum_backend_selector/enhanced-quantum-backend-selector
+  semantic-release version --no-commit --no-tag --no-push
   ```
 
 - [ ] Verify dry-run output:
@@ -210,7 +205,7 @@ After first production release:
 - [ ] **Version Updates**
   - [ ] `pyproject.toml` version updated
   - [ ] CHANGELOG.md updated with release
-  - [ ] Version commit created by semantic-release
+  - [ ] Version commit created by python-semantic-release
 
 ### 2. Verify PyPI Package
 
