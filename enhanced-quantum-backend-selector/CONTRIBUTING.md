@@ -234,14 +234,47 @@ poetry run mkdocs serve
 
 ## Release Process
 
-Only maintainers can create releases:
+This project uses **automated semantic versioning** and **continuous deployment**. Releases are created automatically when code is merged to `main` based on [Conventional Commits](https://www.conventionalcommits.org/).
 
-1. Update CHANGELOG.md with release version and date
-2. Commit changes to `main`
-3. Create annotated git tag: `git tag -a v0.1.0 -m "Release v0.1.0"`
-4. Push tag: `git push origin v0.1.0`
-5. Create GitHub Release from tag
-6. GitHub Actions automatically publishes to PyPI
+### For Contributors
+
+**Use conventional commit messages** for all commits:
+
+```bash
+# Examples
+git commit -m "feat(selector): add caching support"
+git commit -m "fix(scorer): correct error rate calculation"
+git commit -m "docs(readme): update installation instructions"
+```
+
+Commit types that trigger releases:
+- `feat:` → minor version bump (0.x.0)
+- `fix:`, `perf:`, `docs:`, `refactor:` → patch version bump (0.0.x)
+- `BREAKING CHANGE:` or `feat!:` → major version bump (x.0.0)
+- `chore:`, `test:`, `ci:` → no release
+
+### For Maintainers
+
+The release process is **fully automated**:
+
+1. **Merge PR to `main`** with conventional commits
+2. **Release workflow** automatically:
+   - Analyzes commits to determine version
+   - Updates `pyproject.toml` version using Poetry
+   - Generates/updates `CHANGELOG.md`
+   - Creates Git tag and GitHub Release
+   - Uploads build artifacts
+3. **Publish workflow** automatically:
+   - Runs tests and builds package
+   - Publishes to PyPI via Trusted Publishing
+
+**See [RELEASE.md](RELEASE.md) for complete details**, including:
+- Detailed commit message format
+- Version determination rules
+- PyPI publishing process
+- Required GitHub secrets
+- Troubleshooting guide
+- Emergency procedures
 
 ## Getting Help
 
