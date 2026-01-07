@@ -30,14 +30,14 @@ jobs:
         with:
           tag: ${{ github.event.inputs.tag || github.event.release.tag_name }}
           fileName: '*.whl'
-          out-file-path: 'dist'
+          out-file-path: 'dist/'
           
       - name: Download source distribution
         uses: robinraju/release-downloader@v1.11
         with:
           tag: ${{ github.event.inputs.tag || github.event.release.tag_name }}
           fileName: '*.tar.gz'
-          out-file-path: 'dist'
+          out-file-path: 'dist/'
 
       - name: Publish to TestPyPI
         if: github.event.inputs.test-pypi == 'true'
