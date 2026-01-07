@@ -52,6 +52,8 @@ Changelog = "https://github.com/sevetseh28/enhanced_quantum_backend_selector/blo
 packages = [{include = "enhanced_quantum_backend_selector", from = "src"}]
 
 [tool.poetry.group.dev.dependencies]
+qiskit-aer = "^0.17.2"
+qiskit-ibm-runtime = "^0.43.1"
 mypy = "^1.18.2"
 pytest = "^8.0.0"
 pytest-cov = "^4.1.0"

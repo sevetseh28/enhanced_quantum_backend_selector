@@ -50,7 +50,14 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "cd enhanced-quantum-backend-selector && poetry version ${nextRelease.version} && cd .."
+        "prepareCmd": "cd enhanced-quantum-backend-selector && poetry version ${nextRelease.version} && cd ..",
+        "publishCmd": "cd enhanced-quantum-backend-selector && poetry build && cd .."
+      }
+    ],
+    [
+      "@semantic-release/npm",
+      {
+        "npmPublish": false
       }
     ],
     [
