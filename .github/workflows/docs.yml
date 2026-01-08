@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   build-docs:
@@ -22,6 +23,8 @@ jobs:
       - name: Build docs in dev container
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          cacheFrom: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
           runCmd: |
             cd enhanced-quantum-backend-selector
             poetry install --with docs
@@ -47,6 +50,8 @@ jobs:
       - name: Deploy docs in dev container
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          cacheFrom: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
           runCmd: |
             cd enhanced-quantum-backend-selector
             poetry install --with docs
