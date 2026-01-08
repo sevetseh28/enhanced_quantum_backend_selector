@@ -13,6 +13,9 @@ on:
         required: false
         default: 'true'
 
+permissions:
+  packages: write
+
 jobs:
   publish:
     name: Publish package
@@ -32,6 +35,8 @@ jobs:
       - name: Build in dev container
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          cacheFrom: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
           runCmd: |
             cd enhanced-quantum-backend-selector
             poetry install --only main

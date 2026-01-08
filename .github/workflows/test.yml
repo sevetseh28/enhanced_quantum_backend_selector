@@ -7,6 +7,10 @@ on:
     branches: [ main, develop ]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   test:
     name: Test in Dev Container
@@ -23,6 +27,8 @@ jobs:
       - name: Build and run in dev container
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          cacheFrom: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
           runCmd: |
             cd enhanced-quantum-backend-selector
             poetry install --with dev
@@ -56,6 +62,8 @@ jobs:
       - name: Build in dev container
         uses: devcontainers/ci@v0.3
         with:
+          imageName: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          cacheFrom: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
           runCmd: |
             cd enhanced-quantum-backend-selector
             poetry build
