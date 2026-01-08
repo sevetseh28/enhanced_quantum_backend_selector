@@ -11,14 +11,36 @@ on:
 
 jobs:
   release:
+    name: ${{ inputs.dry_run && 'Test Release (Dry Run)' || 'Create Release' }}
+    runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
       pull-requests: write
       id-token: write
       packages: write
-    uses: ./.github/workflows/release-reusable.yml
-    with:
-      dry_run: ${{ inputs.dry_run }}
-    secrets: inherit
 
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run tests in dev container
+        uses: devcontainers/ci@v0.3
+        with:
+          imageName: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          cacheFrom: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          runCmd: |
+            cd enhanced-quantum-backend-selector
+            poetry install
+            poetry run pytest --cov=enhanced_quantum_backend_selector --cov-fail-under=80
+
+      - name: Python Semantic Release
+        uses: python-semantic-release/python-semantic-release@v9.17.0
+        with:
+          directory: enhanced-quantum-backend-selector
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          git_committer_name: github-actions[bot]
+          git_committer_email: github-actions[bot]@users.noreply.github.com
+          root_options: ${{ inputs.dry_run && '--noop' || '-v' }}
