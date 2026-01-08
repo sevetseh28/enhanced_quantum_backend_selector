@@ -369,8 +369,8 @@ After completing configuration, verify:
 
 **Release workflow fails**:
 - Verify conventional commit format
-- Check semantic-release configuration in `.releaserc.json`
-- Ensure `@semantic-release/exec` is installed (check workflow file)
+- Check python-semantic-release configuration in `pyproject.toml`
+- Ensure python-semantic-release GitHub Action is properly configured (check workflow file)
 
 **Publish workflow fails**:
 - Verify Trusted Publishing is configured correctly

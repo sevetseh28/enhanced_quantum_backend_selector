@@ -1,6 +1,6 @@
 # Automated Release Workflow
 
-This project uses **semantic-release** to automate versioning, changelog generation, and GitHub releases based on conventional commits.
+This project uses **python-semantic-release** to automate versioning, changelog generation, and GitHub releases based on conventional commits.
 
 ## How It Works
 
@@ -38,7 +38,7 @@ BREAKING CHANGE: The old API has been removed
 When you push to `main`:
 
 1. **Tests Run**: GitHub Actions runs the full test suite
-2. **Analysis**: semantic-release analyzes commits since last release
+2. **Analysis**: python-semantic-release analyzes commits since last release
 3. **Version Bump**: Determines new version based on commit types
 4. **Changelog**: Auto-generates CHANGELOG.md
 5. **Tag**: Creates git tag (e.g., v0.1.0)
@@ -49,15 +49,15 @@ When you push to `main`:
 
 **`.github/workflows/release.yml`**
 - Triggers on push to `main`
-- Runs semantic-release
+- Runs python-semantic-release GitHub Action
 - Creates tags and GitHub releases
 
 **`.github/workflows/publish.yml`**
 - Triggers on release publication or version tags
 - Builds and publishes to PyPI
 
-**`.releaserc.json`**
-- Configuration for semantic-release
+**`pyproject.toml`**
+- Configuration for python-semantic-release under `[tool.semantic_release]`
 - Defines release rules and changelog format
 
 ## Release Steps
