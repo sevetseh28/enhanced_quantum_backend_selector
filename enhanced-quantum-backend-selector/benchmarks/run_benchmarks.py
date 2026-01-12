@@ -168,7 +168,10 @@ def run_all_benchmarks(output_dir: Path | None = None) -> dict[str, Any]:
         # Deep circuits - favors lowest error rates
         ("DeepLinear-20q-d30", create_deep_linear_circuit(num_qubits=20, depth=30)),
         # Mirror circuit - IBM's 1D Ising Trotter mirror (U†U=I, uses FakeTorino topology)
-        ("Mirror-1D-50q", create_mirror_circuit(FakeTorino(), num_qubits=50, num_steps=5)),
+        (
+            "Mirror-1D-50q",
+            create_mirror_circuit(FakeTorino(), num_qubits=50, target_num_2q_gates=100),
+        ),
         # Chemistry - favors heavy-hex topology
         ("LUCJ-Chemistry-52q", create_lucj_ansatz(52, n_reps=1, topology="heavy_hex")),
         # Optimization

@@ -94,10 +94,10 @@ def get_backend_info(backend: BackendV2) -> dict[str, str]:
             "generation": "2025",
         },
         "fake_miami": {
-            "name": "IBM Quantum Miami (FakeMiami)",
-            "description": "IBM Quantum Miami - 120 qubit processor with square lattice",
+            "name": "IBM Quantum Nighthawk (FakeMiami)",
+            "description": "IBM Quantum Nighthawk - 120 qubit processor with square lattice",
             "strengths": "Superior connectivity (4 neighbors/qubit), square lattice topology, CZ native gate",
-            "processor_type": "Miami",
+            "processor_type": "Nighthawk",
             "generation": "2025",
         },
     }
