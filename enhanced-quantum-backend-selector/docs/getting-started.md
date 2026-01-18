@@ -1,17 +1,15 @@
 # Getting Started
 
-This guide will help you install and start using the Enhanced Quantum Backend Selector.
+This guide covers installation and basic usage of the Enhanced Quantum Backend Selector.
 
 ## Installation
 
 ### Requirements
 
-- Python 3.12 or higher
-- Qiskit 2.2.3 or higher (with BackendV2 support)
+- Python 3.10 or higher
+- Qiskit 2.2.3 or higher
 
 ### Install from PyPI
-
-The easiest way to install is via pip:
 
 ```bash
 pip install enhanced-quantum-backend-selector
@@ -19,15 +17,17 @@ pip install enhanced-quantum-backend-selector
 
 ### Install with Poetry
 
-If you use Poetry for dependency management:
-
 ```bash
 poetry add enhanced-quantum-backend-selector
 ```
 
-### Install from Source
+### Install from GitHub
 
-For development or the latest unreleased features:
+```bash
+pip install git+https://github.com/sevetseh28/enhanced_quantum_backend_selector.git#subdirectory=enhanced-quantum-backend-selector
+```
+
+### Install from Source (Development)
 
 ```bash
 git clone https://github.com/sevetseh28/enhanced_quantum_backend_selector.git
@@ -35,53 +35,40 @@ cd enhanced-quantum-backend-selector/enhanced-quantum-backend-selector
 poetry install
 ```
 
-## Verify Installation
-
-Test that the library is installed correctly:
-
-```python
-from enhanced_quantum_backend_selector import BackendSelector
-print("Installation successful!")
-```
-
-## First Steps
+## Basic Usage
 
 ### 1. Get Available Backends
-
-Connect to a quantum provider and retrieve available backends:
 
 ```python
 from qiskit_ibm_runtime import QiskitRuntimeService
 
-# Initialize service (requires IBM Quantum account)
 service = QiskitRuntimeService()
-
-# Get all available backends
 backends = service.backends()
-print(f"Found {len(backends)} backends")
 ```
 
-!!! tip "Using Simulators for Testing"
-    For testing without an IBM Quantum account, use Qiskit's fake backends:
-    
+!!! tip "Using Fake Backends for Testing"
+    **Generic backends (Qiskit):**
     ```python
     from qiskit.providers.fake_provider import GenericBackendV2
-    
+
     backends = [
         GenericBackendV2(num_qubits=5),
-        GenericBackendV2(num_qubits=7),
         GenericBackendV2(num_qubits=27),
     ]
     ```
 
-### 2. Create a Quantum Circuit
+    **Fake IBM backends (qiskit-ibm-runtime):**
+    ```python
+    from qiskit_ibm_runtime.fake_provider import FakeManilaV2, FakeSherbrooke
 
-Define the circuit you want to execute:
+    backends = [FakeManilaV2(), FakeSherbrooke()]
+    ```
+
+### 2. Create a Circuit
 
 ```python
 from qiskit import QuantumCircuit
 
-# Create a simple GHZ state
 qc = QuantumCircuit(3)
 qc.h(0)
 qc.cx(0, 1)
@@ -91,94 +78,41 @@ qc.measure_all()
 
 ### 3. Select the Best Backend
 
-Use the BackendSelector to find the optimal backend:
-
 ```python
 from enhanced_quantum_backend_selector import BackendSelector
 
-# Initialize selector with available backends
 selector = BackendSelector(backends)
+rec = selector.select_backend(qc)
 
-# Get the best backend for your circuit
-recommendation = selector.select_backend(qc)
-
-# Use the recommended backend
-print(f"Best backend: {recommendation.backend.name}")
-print(f"Score: {recommendation.score_data.score:.3f}")
+print(f"Best backend: {rec.backend.name}")
+print(f"Score: {rec.score_data.score:.3f}")
+print(f"Expected error: {-rec.score_data.score:.2%}")
 ```
 
-### 4. Understanding the Results
+### 4. Understanding Scores
 
-The recommendation includes detailed information:
-
-```python
-# Overall metrics
-print(f"Rank: #{recommendation.rank}")
-print(f"Score: {recommendation.score_data.score:.3f}")  # Negative error sum
-print(f"Compatible: {recommendation.score_data.compatible}")
-
-# Human-readable explanation
-for reason in recommendation.score_data.reasons:
-    print(f"  • {reason}")
-
-# Backend specifications
-print("\nBackend Details:")
-print(f"  Num Qubits:     {recommendation.backend.num_qubits}")
-# Get connectivity from backend target
-coupling_map = recommendation.backend.target.build_coupling_map()
-num_edges = len(coupling_map.get_edges()) if coupling_map else 0
-print(f"  Connectivity:   {num_edges} edges")
-# Access qubit properties for T1/T2 times
-if recommendation.backend.target.qubit_properties:
-    t1_values = [p.t1 for p in recommendation.backend.target.qubit_properties if p.t1 is not None]
-    if t1_values:
-        avg_t1 = sum(t1_values) / len(t1_values)
-        print(f"  Avg T1 Time:    {avg_t1:.2e} seconds")
-```
-
-**Understanding Scores:**
-
-- Score is the **negative sum of all errors**: `score = -total_error`
+- **Score** is the negative sum of all errors: `score = -total_error`
 - **Higher scores are better** (less negative = lower error)
 - Example: `-0.01` (1% error) is better than `-0.05` (5% error)
-- Score is calculated by:
-  1. Transpiling your circuit to the backend (optimization level 2)
-  2. Summing all error rates for the qubits used in the transpiled circuit
-  3. Averaging over multiple independent transpilation runs (default: 3, configurable)
-  4. For chemistry circuits, include both standard and fractional gate versions in your backends list to compare
 
-### 5. Execute Your Circuit
+The score is calculated by:
 
-Once you have the recommendation, execute your circuit:
-
-```python
-from qiskit_ibm_runtime import Sampler
-
-# Use the recommended backend
-backend = recommendation.backend
-
-# Create a sampler and run the circuit
-sampler = Sampler(backend=backend)
-job = sampler.run(qc, shots=1024)
-result = job.result()
-
-print(f"Job completed on {backend.name}")
-```
+1. Transpiling your circuit to the backend (optimization level 2)
+2. Summing error rates for all gates in the transpiled circuit
+3. Averaging over multiple transpilation runs (default: 3)
 
 ## Complete Example
-
-Here's a complete working example:
 
 ```python
 from qiskit import QuantumCircuit
 from qiskit.providers.fake_provider import GenericBackendV2
 from enhanced_quantum_backend_selector import BackendSelector
 
-# Setup
+# Setup backends
 backends = [
-    GenericBackendV2(num_qubits=5),
-    GenericBackendV2(num_qubits=7),
-    GenericBackendV2(num_qubits=27),
+    GenericBackendV2(num_qubits=5, seed=42),
+    GenericBackendV2(num_qubits=7, seed=43),
+    GenericBackendV2(num_qubits=27, seed=44),
 ]
 
 # Create circuit
@@ -190,27 +124,16 @@ qc.measure_all()
 
 # Select backend
 selector = BackendSelector(backends)
-recommendation = selector.select_backend(qc)
+rec = selector.select_backend(qc)
 
-# Display results
-print(f"✓ Selected: {recommendation.backend.name}")
-print(f"  Score: {recommendation.score_data.score:.3f}")
-print(f"  Reasons: {', '.join(recommendation.score_data.reasons)}")
+print(f"✓ Selected: {rec.backend.name}")
+print(f"  Score: {rec.score_data.score:.3f}")
+print(f"  Expected error: {-rec.score_data.score:.2%}")
 ```
 
-## Next Steps
-
-Now that you have the basics working, explore:
-
-- [User Guide](user-guide.md) - Learn about custom weights and advanced features
-- [Examples](examples.md) - See real-world usage patterns
-- [API Reference](api-reference.md) - Complete API documentation
-
-## Common Issues
+## Troubleshooting
 
 ### ModuleNotFoundError: No module named 'qiskit_ibm_runtime'
-
-Install the IBM Quantum Runtime package:
 
 ```bash
 pip install qiskit-ibm-runtime
@@ -218,12 +141,9 @@ pip install qiskit-ibm-runtime
 
 ### Authentication Error
 
-Set up your IBM Quantum credentials:
-
 ```python
 from qiskit_ibm_runtime import QiskitRuntimeService
 
-# Save credentials (first time only)
 QiskitRuntimeService.save_account(
     channel="ibm_quantum",
     token="YOUR_API_TOKEN",
@@ -231,21 +151,17 @@ QiskitRuntimeService.save_account(
 )
 ```
 
-Get your API token from [IBM Quantum](https://quantum.ibm.com/).
-
 ### No Compatible Backends Found
 
-If you get an error about no compatible backends:
-
 ```python
-# Option 1: Disable strict compatibility checking
-recommendation = selector.select_backend(qc, require_compatible=False)
-
-# Option 2: Lower the minimum score threshold
-recommendation = selector.select_backend(qc, min_score=0.1)
-
-# Option 3: Get all rankings to see what's available
+# Get all rankings to see what's available
 rankings = selector.rank_backends(qc)
 for rec in rankings:
     print(f"{rec.backend.name}: {rec.score_data.score:.3f}")
 ```
+
+## Next Steps
+
+- [User Guide](user-guide.md) - Advanced features and configuration
+- [Examples](examples.md) - Real-world usage patterns
+- [API Reference](api-reference.md) - Complete API documentation
