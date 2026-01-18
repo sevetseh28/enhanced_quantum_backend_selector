@@ -1,6 +1,6 @@
 {
     "name": "Qiskit Quantum Dev Env for QAMP 2025",
-    "image": "mcr.microsoft.com/vscode/devcontainers/python:3.12",
+    "image": "mcr.microsoft.com/vscode/devcontainers/python:3.10",
     "customizations": {
       "vscode": {
         "extensions": [
