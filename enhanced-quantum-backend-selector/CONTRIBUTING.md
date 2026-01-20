@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This document provides guidelines f
 
 ### Prerequisites
 
-- Python 3.12 or 3.13
+- Python >=3.10
 - Poetry (for dependency management)
 - Git
 
