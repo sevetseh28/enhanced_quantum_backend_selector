@@ -44,7 +44,7 @@ jobs:
             GH_TOKEN
           runCmd: |
             cd enhanced-quantum-backend-selector
-            poetry install
+            poetry install --extras dev
 
             # Configure git for commits
             git config --global user.name "github-actions[bot]"
