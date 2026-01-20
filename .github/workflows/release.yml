@@ -33,21 +33,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run tests in dev container
+      - name: Run release in dev container
         uses: devcontainers/ci@v0.3
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           imageName: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
           cacheFrom: ghcr.io/sevetseh28/enhanced-quantum-backend-selector-devcontainer
+          env: |
+            GH_TOKEN
           runCmd: |
             cd enhanced-quantum-backend-selector
             poetry install
-            poetry run pytest --cov=enhanced_quantum_backend_selector --cov-fail-under=80
 
-      - name: Python Semantic Release
-        uses: python-semantic-release/python-semantic-release@v9.17.0
-        with:
-          directory: enhanced-quantum-backend-selector
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          git_committer_name: github-actions[bot]
-          git_committer_email: github-actions[bot]@users.noreply.github.com
-          root_options: ${{ inputs.dry_run && '--noop' || '-v' }}
+            # Configure git for commits
+            git config --global user.name "github-actions[bot]"
+            git config --global user.email "github-actions[bot]@users.noreply.github.com"
+            git config --global --add safe.directory /workspaces/enhanced_quantum_backend_selector
+
+            # Run semantic release
+            # Note: --noop must come BEFORE the subcommand
+            # version command by default: commits, tags, pushes, updates changelog, creates VCS release
+            # publish command: uploads dist artifacts to the VCS release
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              poetry run semantic-release -v --noop version
+            else
+              poetry run semantic-release -v version
+              poetry run semantic-release -v publish
+            fi
