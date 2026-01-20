@@ -1,6 +1,7 @@
 """Fake backends from qiskit-ibm-runtime for benchmarking.
 
-Provides FakeTorino (Heron R1), FakeMarrakesh (Heron R2), FakeBoston (Heron R3), and FakeMiami (Nighthawk R1).
+Provides FakeTorino (Heron R1), FakeMarrakesh (Heron R2), FakeBoston (Heron R3),
+and FakeMiami (Nighthawk R1).
 """
 
 import os
@@ -89,14 +90,14 @@ def get_backend_info(backend: BackendV2) -> dict[str, str]:
         "fake_boston": {
             "name": "IBM Quantum Heron R3 (FakeBoston)",
             "description": "IBM Quantum Heron R3 - 156 qubit processor with heavy-hex topology",
-            "strengths": "Latest Heron generation, best error rates, highest fidelity, CZ native gate",
+            "strengths": "Latest Heron generation, best error rates, highest fidelity, CZ gate",
             "processor_type": "Heron R3",
             "generation": "2025",
         },
         "fake_miami": {
             "name": "IBM Quantum Nighthawk (FakeMiami)",
             "description": "IBM Quantum Nighthawk - 120 qubit processor with square lattice",
-            "strengths": "Superior connectivity (4 neighbors/qubit), square lattice topology, CZ native gate",
+            "strengths": "Superior connectivity (4 neighbors/qubit), square lattice, CZ gate",
             "processor_type": "Nighthawk",
             "generation": "2025",
         },

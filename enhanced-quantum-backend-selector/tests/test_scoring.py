@@ -7,7 +7,6 @@ from qiskit.providers import BackendV2
 from qiskit.transpiler import InstructionProperties, Target
 
 from enhanced_quantum_backend_selector.backend_analyzer import BackendAnalyzer
-from enhanced_quantum_backend_selector.circuit_scorer import CircuitScorer
 
 
 def create_mock_target() -> Target:

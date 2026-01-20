@@ -292,7 +292,7 @@ def create_lucj_ansatz(
         # Setting optimize=True enables the "compressed" factorization
         optimize=True,
         # Limit optimization iterations for benchmarking
-        options=dict(maxiter=1000),
+        options={"maxiter": 1000},
     )
 
     # Create the quantum circuit

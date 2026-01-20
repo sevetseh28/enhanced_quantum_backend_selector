@@ -97,7 +97,8 @@ def run_single_benchmark(
         info = backend_info_map.get(rec.backend.name, {})
         proc_type = info.get("processor_type", "Unknown")
         print(
-            f"  {i}. {rec.backend.name} ({proc_type}): {rec.score_data.score:.6f} ({error_pct:.3f}% error)"
+            f"  {i}. {rec.backend.name} ({proc_type}): "
+            f"{rec.score_data.score:.6f} ({error_pct:.3f}% error)"
         )
         results.append(
             {
