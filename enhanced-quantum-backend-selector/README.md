@@ -102,10 +102,41 @@ poetry run mypy src/
 poetry run ruff format .
 ```
 
+## Benchmarking
+
+The library includes a comprehensive benchmarking suite with real-world quantum circuits to evaluate backend selector performance using mock backends that simulate real IBM Quantum processors (Heron R1, Heron R2, Heron R3, and Nighthawk):
+
+```bash
+# Run full benchmark suite
+poetry run python benchmarks/run_benchmarks.py
+
+# Run example benchmarks
+poetry run python examples/run_benchmarks.py
+
+# Run benchmark tests
+poetry run pytest tests/test_benchmarks.py -v
+```
+
+**Benchmark Circuits:**
+- **GHZ**: Multi-qubit entanglement testing
+- **Bernstein-Vazirani**: Parallel operations and phase kickback
+- **Mirror_5k**: Device benchmarking (circuit inversion)
+- **LUCJ Ansatz**: Quantum chemistry applications
+- **QAOA**: Combinatorial optimization
+
+**Mock Backends** (based on real IBM processors):
+- **IBM Heron R1**: 133 qubits, heavy-hex topology, 1,800 gate capacity
+- **IBM Heron R2**: 156 qubits, heavy-hex topology, 5,000 gate capacity
+- **IBM Heron R3**: 156 qubits, heavy-hex topology, improved error rates
+- **IBM Nighthawk**: 120 qubits, square lattice, superior connectivity
+
+See [Benchmarking Guide](docs/benchmarking.md) for detailed methodology, metrics, and references.
+
 ## Documentation
 
 - [User Guide](docs/user-guide.md)
 - [API Reference](docs/api-reference.md)
+- [Benchmarking Guide](docs/benchmarking.md)
 - [Examples](examples/)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Release Process](RELEASE.md)

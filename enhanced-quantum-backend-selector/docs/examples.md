@@ -1,166 +1,92 @@
 # Examples
 
-This section provides practical examples of using the Enhanced Quantum Backend Selector in various scenarios.
+Practical examples of using the Enhanced Quantum Backend Selector.
 
-## Running the Examples
+## Running Examples
 
-All examples are available in the `examples/` directory of the repository:
+Examples are in the `examples/` directory:
 
 ```bash
-# Clone the repository
-git clone https://github.com/sevetseh28/enhanced_quantum_backend_selector.git
-cd enhanced-quantum-backend-selector/enhanced-quantum-backend-selector
-
-# Install dependencies
-poetry install
-
-# Run an example
+cd enhanced-quantum-backend-selector
 poetry run python examples/basic_usage.py
 poetry run python examples/advanced_usage.py
 ```
 
-## Validate All Examples
-
-Run the validation script to ensure all examples work:
-
-```bash
-poetry run python examples/validate_examples.py
-```
-
-## Basic Usage Example
-
-[View full source code →](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/examples/basic_usage.py)
-
-This example demonstrates the fundamental workflow:
+## Basic Usage
 
 ```python
 from qiskit import QuantumCircuit
 from qiskit.providers.fake_provider import GenericBackendV2
 from enhanced_quantum_backend_selector import BackendSelector
 
-# Get available backends
+# Setup backends
 backends = [
     GenericBackendV2(num_qubits=5, seed=42),
     GenericBackendV2(num_qubits=7, seed=43),
     GenericBackendV2(num_qubits=27, seed=44),
 ]
 
-# Create a quantum circuit (GHZ state)
+# Create circuit
 qc = QuantumCircuit(3)
 qc.h(0)
 qc.cx(0, 1)
 qc.cx(1, 2)
 qc.measure_all()
 
-# Initialize selector and select best backend
+# Select backend
 selector = BackendSelector(backends)
-recommendation = selector.select_backend(qc)
+rec = selector.select_backend(qc)
 
-# View results
-print(f"Recommended: {recommendation.backend.name}")
-print(f"Score: {recommendation.score_data.score:.3f}")
-print(f"Rank: #{recommendation.rank}")
+print(f"Recommended: {rec.backend.name}")
+print(f"Score: {rec.score_data.score:.3f}")
+print(f"Rank: #{rec.rank}")
 ```
 
-**Key Concepts:**
-- Creating a `BackendSelector` instance
-- Using `select_backend()` for simple selection
-- Understanding the `BackendRecommendation` object
-- Accessing score breakdown and metrics
-
-## Advanced Usage Example
-
-[View full source code →](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/examples/advanced_usage.py)
-
-This example shows advanced features:
+## Compare Multiple Backends
 
 ```python
-from enhanced_quantum_backend_selector import BackendSelector
-
-# Create more complex circuit
-qc = QuantumCircuit(5)
-qc.h(0)
-for i in range(4):
-    qc.cx(i, i + 1)
-qc.barrier()
-for i in range(5):
-    qc.rz(0.5, i)
-qc.measure_all()
-
-selector = BackendSelector(backends)
-
 # Get top 3 backends
 top_3 = selector.rank_backends(qc, top_n=3)
 
 for rec in top_3:
+    error_pct = -rec.score_data.score * 100
     print(f"{rec.rank}. {rec.backend.name}")
-    print(f"   Score: {rec.score_data.score:.3f}")  # Negative error sum
-    print(f"   Compatible: {rec.score_data.compatible}")
-    print(f"   Reasons: {rec.score_data.reasons[0]}")
-
-# Set minimum quality threshold
-# Since scores are negative, -0.1 means max 10% total error
-try:
-    high_quality = selector.select_backend(qc, min_score=-0.05)  # Max 5% error
-    print(f"High-quality backend: {high_quality.backend.name}")
-except ValueError:
-    print("No backends met the quality threshold")
+    print(f"   Score: {rec.score_data.score:.3f}")
+    print(f"   Expected error: {error_pct:.2f}%")
 ```
 
-**Key Concepts:**
-- Using `rank_backends()` for full rankings
-- Understanding negative error-based scores
-- Minimum score filtering with negative thresholds
-- Compatibility checking
+## Chemistry Circuits
 
-## Real-World Scenarios
-
-### Scenario 1: Chemistry Circuit with Fractional Gates
-
-VQE and chemistry circuits benefit from fractional gates. The selector detects and reports which configuration is used:
+VQE and chemistry circuits benefit from fractional gates:
 
 ```python
 from qiskit.circuit.library import EfficientSU2
-from enhanced_quantum_backend_selector import BackendSelector
 
-# Create a typical chemistry ansatz
+# Create chemistry ansatz
 ansatz = EfficientSU2(num_qubits=4, reps=2)
 ansatz.measure_all()
 
-print(f"Circuit depth: {ansatz.depth()}")
-print(f"Operations: {ansatz.count_ops()}")
-
-# Selector detects fractional gates from backend properties
-selector = BackendSelector(backends)
+# Select best backend
 rec = selector.select_backend(ansatz)
-
 print(f"Best backend: {rec.backend.name}")
-print(f"Score: {rec.score_data.score:.4f}")
-print(f"Expected error: {-rec.score_data.score * 100:.2f}%")
-
-# Check which gate configuration was detected
-for reason in rec.score_data.reasons:
-    if 'fractional' in reason.lower() or 'standard' in reason.lower():
-        print(f"Configuration: {reason}")
+print(f"Expected error: {-rec.score_data.score:.2%}")
 ```
 
-**Tip**: To compare fractional vs standard gates, include both versions in your backends list:
+To compare fractional vs standard gates:
+
 ```python
+from qiskit_ibm_runtime import QiskitRuntimeService
+
+service = QiskitRuntimeService()
 backends = [
-    service.backend('ibm_torino'),  # Standard
-    service.backend('ibm_torino', use_fractional_gates=True),  # Fractional
+    service.backend('ibm_torino'),
+    service.backend('ibm_torino', use_fractional_gates=True),
 ]
 ```
 
-### Scenario 2: VQE Algorithm
-
-Variational Quantum Eigensolver requires high-fidelity gates:
+## VQE Circuit
 
 ```python
-from qiskit import QuantumCircuit
-from enhanced_quantum_backend_selector import BackendSelector
-
-# Create VQE ansatz
 def create_vqe_circuit(num_qubits=4):
     qc = QuantumCircuit(num_qubits)
     for i in range(num_qubits):
@@ -171,212 +97,104 @@ def create_vqe_circuit(num_qubits=4):
     return qc
 
 qc = create_vqe_circuit(4)
-
-# Select backend - transpilation reveals best backend for this circuit
-selector = BackendSelector(backends)
 rec = selector.select_backend(qc)
 
 print(f"Best VQE backend: {rec.backend.name}")
-print(f"Expected error: {-rec.score_data.score:.4f}")  # Convert negative score to error
-print(f"Details: {rec.score_data.reasons[0]}")
+print(f"Expected error: {-rec.score_data.score:.4f}")
+```
 
-### Scenario 2: QAOA for Graph Problems
-
-Quantum Approximate Optimization Algorithm needs good connectivity:
+## QAOA Circuit
 
 ```python
-# QAOA circuit with many entangling gates
 def create_qaoa_circuit(num_qubits=6):
     qc = QuantumCircuit(num_qubits)
-    
+
     # Initial superposition
     for i in range(num_qubits):
         qc.h(i)
-    
-    # Problem Hamiltonian (random graph edges)
+
+    # Problem Hamiltonian
     edges = [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5), (0, 5)]
     for i, j in edges:
         qc.cx(i, j)
         qc.rz(0.5, j)
         qc.cx(i, j)
-    
+
     qc.measure_all()
     return qc
 
 qc = create_qaoa_circuit(6)
-
-# Transpilation finds backends with topology matching the circuit
 rec = selector.select_backend(qc)
 print(f"Best QAOA backend: {rec.backend.name}")
-print(f"Score: {rec.score_data.score:.3f}")
-print(f"Connectivity: {rec.metrics.num_edges} edges")
 ```
 
-### Scenario 3: Rapid Prototyping
-
-Quick iteration during development:
-
-```python
-# Simple test circuit
-qc = QuantumCircuit(2)
-qc.h(0)
-qc.cx(0, 1)
-qc.measure_all()
-
-# Use default scoring (optimized for quality)
-rec = selector.select_backend(qc)
-print(f"Best backend: {rec.backend.name}")
-print(f"Score: {rec.score_data.score:.3f}")  # Negative error sum
-print(f"Expected error: {-rec.score_data.score:.2%}")  # As percentage
-```
-
-### Scenario 4: Production Workload
-
-Robust backend selection with error handling:
+## Production Workflow
 
 ```python
 def production_backend_selection(circuit, backends):
     """Production-ready backend selection with fallbacks."""
     selector = BackendSelector(backends)
-    
+
     try:
-        # Get best compatible backend
-        rec = selector.select_backend(
-            circuit,
-            require_compatible=True,
-        )
-        
-        # Check if error rate is acceptable (< 10%)
-        if -rec.score_data.score < 0.10:
+        rec = selector.select_backend(circuit, require_compatible=True)
+
+        error_pct = -rec.score_data.score * 100
+        if error_pct < 10:
             return rec.backend, "optimal"
         else:
             return rec.backend, "acceptable"
-    
+
     except ValueError as e:
-        # No compatible backends found
         print(f"Warning: {e}")
-        # Get all backends and pick highest scoring
         all_recs = selector.rank_backends(circuit)
         return all_recs[0].backend, "fallback"
 
-# Use in production
 backend, quality = production_backend_selection(qc, backends)
 print(f"Selected: {backend.name} (quality: {quality})")
 ```
 
-### Scenario 5: Batch Processing
-
-Optimize backend selection across multiple circuits:
+## Batch Processing
 
 ```python
-from typing import Dict, List
-
-def batch_backend_selection(
-    circuits: List[QuantumCircuit],
-    backends: List,
-) -> Dict[int, BackendRecommendation]:
-    """Select backends for a batch of circuits."""
+def batch_backend_selection(circuits, backends):
+    """Select backends for multiple circuits."""
     selector = BackendSelector(backends)
-    
-    recommendations = {}
-    
+
+    results = {}
     for i, circuit in enumerate(circuits):
         rec = selector.select_backend(circuit)
-        recommendations[i] = rec
         error_pct = -rec.score_data.score * 100
-        print(f"Circuit {i}: {rec.backend.name} ")
-        print(f"  Score: {rec.score_data.score:.3f} (expected error: {error_pct:.2f}%)")
-    
-    return recommendations
+        results[f"circuit_{i}"] = {
+            "backend": rec.backend.name,
+            "score": rec.score_data.score,
+            "error_pct": error_pct,
+        }
+        print(f"Circuit {i}: {rec.backend.name} ({error_pct:.2f}% error)")
 
-# Create multiple circuits
-circuits = [
-    create_vqe_circuit(4),
-    create_qaoa_circuit(6),
-    QuantumCircuit(3),  # Simple circuit
-]
-
-# Select backends for all circuits
-results = batch_backend_selection(circuits, backends)
+    return results
 ```
 
-## Interactive Examples
-
-### Compare All Backends
+## Backend Comparison Table
 
 ```python
 def compare_backends(circuit, backends, top_n=5):
     """Compare top backends for a circuit."""
     selector = BackendSelector(backends)
-    
     recommendations = selector.rank_backends(circuit, top_n=top_n)
-    
-    print(f"Circuit: {circuit.num_qubits} qubits, depth {circuit.depth()}\n")
-    print(f"{'Rank':<6} {'Backend':<25} {'Score':>10} {'Error %':>10} {'Qubits':>8}")
-    print("-" * 65)
-    
+
+    print(f"{'Rank':<6} {'Backend':<25} {'Score':>10} {'Error %':>10}")
+    print("-" * 55)
+
     for rec in recommendations:
         error_pct = -rec.score_data.score * 100
         print(f"#{rec.rank:<5} {rec.backend.name:<25} "
-              f"{rec.score_data.score:>10.4f} {error_pct:>9.2f}% {rec.metrics.num_qubits:>8}")
+              f"{rec.score_data.score:>10.4f} {error_pct:>9.2f}%")
 
-# Run comparison
-qc = create_vqe_circuit(5)
 compare_backends(qc, backends)
-```
-
-### Analyze Backend Recommendation
-
-```python
-def analyze_backend(recommendation):
-    """Detailed analysis of a backend recommendation."""
-    print("=" * 70)
-    print(f"Backend Analysis: {recommendation.backend.name}")
-    print("=" * 70)
-    
-    # Overall score and error
-    score = recommendation.score_data.score
-    error_pct = -score * 100
-    print(f"\nScore: {score:.4f} (Rank #{recommendation.rank})")
-    print(f"Expected Error: {error_pct:.2f}%")
-    print(f"Compatible: {recommendation.score_data.compatible}")
-    
-    # Backend specifications
-    print("\nBackend Metrics:")
-    print(f"  Qubits:          {recommendation.backend.num_qubits}")
-    coupling_map = recommendation.backend.target.build_coupling_map()
-    num_edges = len(coupling_map.get_edges()) if coupling_map else 0
-    print(f"  Connectivity:    {num_edges} edges")
-    # Access qubit properties directly from backend
-    if recommendation.backend.target.qubit_properties:
-        t1_values = [p.t1 for p in recommendation.backend.target.qubit_properties if p.t1 is not None]
-        t2_values = [p.t2 for p in recommendation.backend.target.qubit_properties if p.t2 is not None]
-        if t1_values:
-            avg_t1 = sum(t1_values) / len(t1_values)
-            print(f"  Avg T1:          {avg_t1:.2e} s")
-        if t2_values:
-            avg_t2 = sum(t2_values) / len(t2_values)
-            print(f"  Avg T2:          {avg_t2:.2e} s")
-    # Check operational status
-    try:
-        status = recommendation.backend.status()
-        print(f"  Operational:     {status.operational}")
-    except Exception:
-        pass
-    
-    # Reasons for selection
-    if recommendation.score_data.reasons:
-        print("\nSelection Reasons:")
-        for reason in recommendation.score_data.reasons:
-            print(f"  • {reason}")
-
-# Analyze a recommendation
-rec = selector.select_backend(qc)
-analyze_backend(rec)
 ```
 
 ## Next Steps
 
-- [User Guide](user-guide.md) - Learn about all features in detail
+- [User Guide](user-guide.md) - Learn about all features
 - [API Reference](api-reference.md) - Complete API documentation
-- [Architecture](architecture.md) - System design and patterns
+- [Benchmarking](benchmarking.md) - Benchmark circuits and methodology

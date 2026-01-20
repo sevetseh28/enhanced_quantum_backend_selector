@@ -2,103 +2,7 @@
 
 Complete API documentation for the Enhanced Quantum Backend Selector.
 
-## Overview
-
-The library provides three main public classes:
-
-- `BackendSelector` - Main API for backend selection
-- `BackendRecommendation` - Selection results
-- `CircuitScore` - Scoring details
-
 ## Quick Reference
-
-### BackendSelector
-
-Main class for selecting quantum backends.
-
-```python
-from enhanced_quantum_backend_selector import BackendSelector
-
-selector = BackendSelector(
-    backends: List[BackendV2],
-    transpilation_runs: int = 3
-)
-```
-
-**Parameters:**
-- `backends`: List of BackendV2 instances. For chemistry circuits, include both standard and fractional gate versions of the same backend.
-- `transpilation_runs`: Number of times to transpile each circuit for averaging (default: 3). Higher values improve accuracy but increase computation time. Must be at least 1.
-
-**Methods:**
-
-- `select_backend()` - Select the best backend for a circuit
-- `rank_backends()` - Get ranked list of all backends
-
-### BackendRecommendation
-
-Result object containing backend selection details.
-
-```python
-@dataclass
-class BackendRecommendation:
-    backend: BackendV2          # The recommended backend
-    score_data: CircuitScore    # Scoring results with negative error sum
-    rank: int                   # Position in rankings (1=best)
-```
-
-### CircuitScore
-
-Scoring results for a backend.
-
-```python
-@dataclass
-class CircuitScore:
-    backend: str                # Backend name
-    compatible: bool            # Whether backend can run the circuit
-    reasons: list[str]          # Human-readable scoring explanations
-    score: float                # Negative error sum (higher/less negative is better)
-```
-
-**Score Interpretation:**
-- Score is the negative sum of all errors: `score = -total_error`
-- Higher scores are better (less negative = lower error)
-- Example: `-0.01` is better than `-0.05`
-- Calculated from transpiled circuit with 3-run averaging
-
-## Type Hierarchy
-
-```
-BackendSelector
-├── __init__(backends: List[BackendV2])
-├── select_backend() → BackendRecommendation
-└── rank_backends() → List[BackendRecommendation]
-
-BackendRecommendation
-├── backend: BackendV2
-├── score_data: CircuitScore
-│   ├── backend: str
-│   ├── compatible: bool
-│   ├── reasons: List[str]
-│   └── score: float (negative error sum, higher is better)
-└── rank: int
-```
-
-**Note on Scoring:** The current implementation uses pure transpilation-based scoring where the score is calculated as the negative sum of error rates for each gate operation in the transpiled circuit, plus readout errors for all used qubits.
-
-## Module Structure
-
-```
-enhanced_quantum_backend_selector/
-├── __init__.py                    # Public API exports
-├── backend_selector.py            # BackendSelector class
-├── backend_analyzer.py            # Internal: Backend analysis
-├── circuit_scorer.py              # Internal: Circuit scoring
-└── models.py                      # Data models
-```
-
-## Public API
-
-All public classes and functions are exported from the top-level module:
 
 ```python
 from enhanced_quantum_backend_selector import (
@@ -108,13 +12,27 @@ from enhanced_quantum_backend_selector import (
 )
 ```
 
-## Internal APIs
+## BackendSelector
 
-Internal modules in `exploration/` are not part of the public API and may change without notice. Use only the exported classes from the main module.
+Main class for selecting quantum backends.
 
-## Type Annotations
+### Constructor
 
-All public APIs have complete type annotations compatible with mypy strict mode:
+```python
+BackendSelector(
+    backends: List[BackendV2],
+    transpilation_runs: int = 3
+)
+```
+
+**Parameters:**
+
+- `backends`: List of BackendV2 instances
+- `transpilation_runs`: Number of transpilation runs for averaging (default: 3)
+
+### Methods
+
+#### select_backend
 
 ```python
 def select_backend(
@@ -123,12 +41,125 @@ def select_backend(
     top_n: int | None = None,
     require_compatible: bool = True,
     min_score: float | None = None,
-) -> BackendRecommendation:
-    ...
+) -> BackendRecommendation
+```
+
+Select the best backend for a circuit.
+
+**Parameters:**
+
+- `circuit`: The quantum circuit to execute
+- `top_n`: Consider only top N backends (optional)
+- `require_compatible`: Only consider compatible backends (default: True)
+- `min_score`: Minimum acceptable score (optional)
+
+**Returns:** `BackendRecommendation`
+
+**Raises:** `ValueError` if no suitable backend found
+
+#### rank_backends
+
+```python
+def rank_backends(
+    self,
+    circuit: QuantumCircuit,
+    top_n: int | None = None,
+) -> List[BackendRecommendation]
+```
+
+Get ranked list of all backends.
+
+**Parameters:**
+
+- `circuit`: The quantum circuit to execute
+- `top_n`: Return only top N backends (optional)
+
+**Returns:** List of `BackendRecommendation` sorted by score
+
+## BackendRecommendation
+
+Result object containing backend selection details.
+
+```python
+@dataclass
+class BackendRecommendation:
+    backend: BackendV2          # The recommended backend
+    score_data: CircuitScore    # Scoring results
+    rank: int                   # Position in rankings (1=best)
+```
+
+## CircuitScore
+
+Scoring results for a backend.
+
+```python
+@dataclass
+class CircuitScore:
+    backend: str                # Backend name
+    compatible: bool            # Whether backend can run the circuit
+    reasons: list[str]          # Human-readable explanations
+    score: float                # Negative error sum (higher is better)
+```
+
+**Score interpretation:**
+
+- Score = negative sum of all errors
+- Higher scores are better (less negative = lower error)
+- Example: `-0.01` (1% error) is better than `-0.05` (5% error)
+
+## Type Hierarchy
+
+```
+BackendSelector
+├── select_backend() → BackendRecommendation
+└── rank_backends() → List[BackendRecommendation]
+
+BackendRecommendation
+├── backend: BackendV2
+├── score_data: CircuitScore
+└── rank: int
+
+CircuitScore
+├── backend: str
+├── compatible: bool
+├── reasons: List[str]
+└── score: float
+```
+
+## Module Structure
+
+```
+enhanced_quantum_backend_selector/
+├── __init__.py              # Public API exports
+├── backend_selector.py      # BackendSelector class
+├── backend_analyzer.py      # Internal: Backend analysis
+├── circuit_scorer.py        # Internal: Circuit scoring
+└── models.py                # Data models
+```
+
+## Example
+
+```python
+from qiskit import QuantumCircuit
+from qiskit.providers.fake_provider import GenericBackendV2
+from enhanced_quantum_backend_selector import BackendSelector
+
+backends = [GenericBackendV2(num_qubits=5, seed=42)]
+qc = QuantumCircuit(3)
+qc.h(0)
+qc.cx(0, 1)
+qc.measure_all()
+
+selector = BackendSelector(backends)
+rec = selector.select_backend(qc)
+
+print(f"Backend: {rec.backend.name}")
+print(f"Score: {rec.score_data.score:.3f}")
+print(f"Rank: #{rec.rank}")
 ```
 
 ## See Also
 
-- [User Guide](user-guide.md) - Usage examples and best practices
-- [Architecture](architecture.md) - System design and implementation
-- [Examples](examples.md) - Real-world usage scenarios
+- [User Guide](user-guide.md) - Usage examples
+- [Architecture](architecture.md) - System design
+- [Examples](examples.md) - Real-world scenarios

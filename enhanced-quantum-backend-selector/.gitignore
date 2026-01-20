@@ -149,3 +149,7 @@ Thumbs.db
 # Project specific
 *.tmp
 *.bak
+
+# Benchmark results
+benchmarks/results/
+benchmark_results/

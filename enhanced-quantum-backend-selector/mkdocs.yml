@@ -79,12 +79,10 @@ nav:
   - Getting Started: getting-started.md
   - User Guide: user-guide.md
   - Examples: examples.md
+  - Benchmarking: benchmarking.md
   - API Reference: api-reference.md
   - Architecture: architecture.md
   - Contributing: contributing.md
-  - Automated Releases: automated-release.md
-  - Release Process: release-process.md
-  - Changelog: changelog.md
 
 extra:
   social:
