@@ -13,7 +13,7 @@ from qiskit import transpile
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
-from enhanced_quantum_backend_selector.backend_analyzer import BackendAnalyzer
+from enhanced_quantum_backend_selector.circuit_scorer import CircuitScorer
 from enhanced_quantum_backend_selector.models import BackendRecommendation, CircuitScore
 
 
@@ -92,7 +92,6 @@ class BackendSelector:
 
         self.backends = backends
         self.transpilation_runs = transpilation_runs
-        self._analyzer_cache: dict[str, BackendAnalyzer] = {}
 
     def select_backend(
         self,
@@ -215,19 +214,6 @@ class BackendSelector:
 
         return recommendations
 
-    def clear_cache(self) -> None:
-        """
-        Clear the analyzer cache to force fresh backend analysis.
-
-        Useful when backend calibrations have been updated or when you want
-        to ensure the latest backend information is used.
-
-        Examples:
-            >>> selector.clear_cache()  # Force refresh on next ranking
-            >>> fresh_rankings = selector.rank_backends(circuit)
-        """
-        self._analyzer_cache.clear()
-
     def _score_backends_parallel(
         self,
         circuit: QuantumCircuit,
@@ -286,8 +272,8 @@ class BackendSelector:
         Returns:
             BackendRecommendation for this backend.
         """
-        # Get or create analyzer
-        analyzer = self._get_analyzer(backend)
+        # Create scorer for this backend
+        scorer = CircuitScorer(backend)
 
         # Transpile and score multiple times, then average
         scores = []
@@ -299,7 +285,7 @@ class BackendSelector:
             transpiled = transpile(circuit, backend=backend, optimization_level=2)
 
             # Score the transpiled circuit
-            score_data = analyzer.score_for_circuit(transpiled)
+            score_data = scorer.score_circuit(transpiled)
             scores.append(score_data.score)
 
             # Collect reasons from first run only to avoid duplication
@@ -333,18 +319,3 @@ class BackendSelector:
             score_data=averaged_score_data,
             rank=0,  # Will be assigned during ranking
         )
-
-    def _get_analyzer(self, backend: BackendV2) -> BackendAnalyzer:
-        """
-        Get or create BackendAnalyzer for a backend.
-
-        Args:
-            backend: The backend to analyze.
-
-        Returns:
-            BackendAnalyzer instance.
-        """
-        if backend.name not in self._analyzer_cache:
-            self._analyzer_cache[backend.name] = BackendAnalyzer(backend)
-
-        return self._analyzer_cache[backend.name]

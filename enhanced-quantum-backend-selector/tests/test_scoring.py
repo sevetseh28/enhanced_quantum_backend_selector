@@ -6,7 +6,7 @@ from qiskit.circuit.library import CXGate, Measure, XGate
 from qiskit.providers import BackendV2
 from qiskit.transpiler import InstructionProperties, Target
 
-from enhanced_quantum_backend_selector.backend_analyzer import BackendAnalyzer
+from enhanced_quantum_backend_selector.circuit_scorer import CircuitScorer
 
 
 def create_mock_target() -> Target:
@@ -121,8 +121,8 @@ def test_score_circuit_single_qubit_gates(
     single_xgate_circuit: QuantumCircuit, mock_backend: BackendV2
 ) -> None:
     """Test scoring with single-qubit gates only."""
-    analyzer = BackendAnalyzer(mock_backend)
-    score_result = analyzer.score_for_circuit(single_xgate_circuit)
+    scorer = CircuitScorer(mock_backend)
+    score_result = scorer.score_circuit(single_xgate_circuit)
     assert score_result.score == 0 - (0.001 + 0.02)
     assert score_result.compatible is True
 
@@ -133,8 +133,8 @@ def test_score_circuit_single_qubit_gate_same_qubit_three_times(
     single_xgate_circuit_same_qubit_three_times: QuantumCircuit, mock_backend: BackendV2
 ) -> None:
     """Test scoring with single-qubit gates on the same qubit multiple times."""
-    analyzer = BackendAnalyzer(mock_backend)
-    score_result = analyzer.score_for_circuit(single_xgate_circuit_same_qubit_three_times)
+    scorer = CircuitScorer(mock_backend)
+    score_result = scorer.score_circuit(single_xgate_circuit_same_qubit_three_times)
     expected_error = 3 * 0.001 + 0.02  # Three X gates on qubit 0 plus measurement error
     assert score_result.score == 0 - expected_error
     assert score_result.compatible is True

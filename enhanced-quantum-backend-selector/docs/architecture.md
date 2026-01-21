@@ -18,15 +18,9 @@ The library implements intelligent backend selection using **transpilation-based
 │              BackendSelector                    │
 │  - Public API                                   │
 │  - Input validation                             │
+│  - Transpilation orchestration                  │
 │  - Parallel scoring                             │
 │  - Result ranking                               │
-└───────────────────┬────────────────────────────┘
-                    │
-                    ▼
-┌────────────────────────────────────────────────┐
-│              BackendAnalyzer                    │
-│  - Per-instance caching                         │
-│  - Delegates to CircuitScorer                   │
 └───────────────────┬────────────────────────────┘
                     │
                     ▼
@@ -54,14 +48,6 @@ The library implements intelligent backend selection using **transpilation-based
 - Orchestrates parallel backend scoring
 - Ranks backends by scores
 - Returns strongly-typed recommendations
-
-### BackendAnalyzer
-
-**Responsibility:** Backend analysis wrapper
-
-- Wraps a single backend
-- Creates CircuitScorer for scoring
-- Cached per-selector instance
 
 ### CircuitScorer
 
