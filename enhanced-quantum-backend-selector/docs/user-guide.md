@@ -119,6 +119,51 @@ rec = selector.select_backend(chemistry_circuit)
 
 Multiple backends are scored in parallel (up to 10 workers) automatically.
 
+### What to Expect
+
+Transpilation dominates the run time; scoring a transpiled circuit takes milliseconds.
+Measured on a 12-core laptop with Qiskit's fake IBM devices (127-156 qubits), seeded,
+3 transpilation runs per backend:
+
+| Circuit | 1 backend | 10 backends |
+|---|---|---|
+| GHZ, 100 qubits | < 0.1 s | 0.2 s |
+| QFT, 20 qubits | < 0.1 s | 0.6 s |
+| QFT, 60 qubits | 0.9 s | 3.5 s |
+| QFT, 120 qubits | 0.6 s | 6.9 s |
+| EfficientSU2 (full entanglement), 40 qubits x 5 reps | 0.6 s | 7.4 s |
+
+With real IBM backends, add the time to fetch each backend's calibration data and
+status. Use `transpilation_runs=1` when speed matters more than stability.
+
+## Limitations
+
+The score is an estimate built from the backend's reported calibration data. Keep these
+in mind when comparing backends:
+
+- **Independent errors only.** The success probability multiplies `(1 - error)` for
+  every gate and readout, assuming errors are independent. Crosstalk and correlated
+  errors are not modelled.
+- **No idle or decoherence error.** Time spent idle (delays, waiting on other qubits)
+  and T1/T2 decay over the circuit's duration are not included, so long circuits on
+  qubits with short coherence times look better than they are.
+- **Readout counted for every used qubit**, even if the circuit doesn't measure it.
+  This matches Estimator-style workloads, which measure all active qubits.
+- **Queue time is ignored.** The best-scoring backend may have the longest queue.
+- **Your transpilation may differ.** Backends are scored with `optimization_level=2`.
+  If you transpile with different settings or your own pass manager, the circuit you
+  run can use different qubits than the one that was scored.
+- **Broken couplers.** Some devices report gates with an error of 1.0. If the
+  transpiler routes through one, the success probability for that run is effectively
+  zero. On circuits large enough that every run does this, all backends score about
+  `-1.0` and the ranking reflects which backend needs the fewest broken gates, which
+  is a weak signal.
+- **Missing calibration data** is filled in with the mean error of the same gate on
+  that device; gates with no data anywhere count as error-free and are listed in the
+  score's `reasons`.
+- **Calibration data changes.** Scores reflect the calibration at the time of the call.
+  Re-run the selection rather than caching results for long.
+
 ## Best Practices
 
 ### 1. Handle Exceptions

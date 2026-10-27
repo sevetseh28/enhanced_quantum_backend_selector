@@ -97,6 +97,7 @@ class CircuitScore:
     compatible: bool
     reasons: list[str]
     score: float  # Negative expected error
+    log_success_probability: float  # ln(success probability), used for ranking
 ```
 
 ## Data Flow
