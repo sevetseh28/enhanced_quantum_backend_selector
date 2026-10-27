@@ -51,7 +51,7 @@ def main() -> None:
     selector = BackendSelector(backends)
     rec = selector.select_backend(ansatz)
 
-    error = -rec.score_data.score * 100
+    error = (1 - rec.score_data.score) * 100
     print(f"    Best backend: {rec.backend.name}")
     print(f"    Score: {rec.score_data.score:.6f}")
     print(f"    Expected error: {error:.3f}%")
@@ -75,7 +75,7 @@ def main() -> None:
     print("  " + "-" * 66)
 
     for rec in all_rankings:
-        error_pct = -rec.score_data.score * 100
+        error_pct = (1 - rec.score_data.score) * 100
         print(f"  #{rec.rank:<5} {rec.backend.name:<25} "
               f"{rec.score_data.score:>12.6f} {error_pct:>9.3f}%")
     print()
@@ -101,7 +101,7 @@ def main() -> None:
     print()
 
     rec_custom = selector.select_backend(custom_qc)
-    error_custom = -rec_custom.score_data.score * 100
+    error_custom = (1 - rec_custom.score_data.score) * 100
 
     print(f"  Best backend: {rec_custom.backend.name}")
     print(f"  Score: {rec_custom.score_data.score:.6f}")

@@ -2,7 +2,7 @@
 
 This example demonstrates:
 1. Comparing multiple backends with transpilation-based scoring
-2. Understanding score interpretation (negative error sums)
+2. Understanding score interpretation (success probabilities)
 3. Analyzing top-ranked backends
 4. Handling different circuit complexities
 """
@@ -18,10 +18,10 @@ from enhanced_quantum_backend_selector import (
 
 def print_recommendation(rec: BackendRecommendation, title: str) -> None:
     """Print formatted recommendation details."""
-    error_pct = -rec.score_data.score * 100
+    error_pct = (1 - rec.score_data.score) * 100
     print(f"\n  {title}")
     print(f"  Backend:  {rec.backend.name}")
-    print(f"  Score:    {rec.score_data.score:.6f} (negative error sum)")
+    print(f"  Score:    {rec.score_data.score:.6f} (success probability)")
     print(f"  Error:    {error_pct:.3f}%")
     print(f"  Qubits:   {rec.backend.num_qubits}")
     print(f"  Compatible: {rec.score_data.compatible}")
@@ -91,7 +91,7 @@ def main() -> None:
     print(f"\n  {'Rank':<6} {'Backend':<30} {'Score':>12} {'Error %':>10} {'Qubits':>8}")
     print("  " + "-" * 72)
     for rec in all_recs:
-        error_pct = -rec.score_data.score * 100
+        error_pct = (1 - rec.score_data.score) * 100
         print(f"  #{rec.rank:<5} {rec.backend.name:<30} "
               f"{rec.score_data.score:>12.6f} {error_pct:>9.3f}% {rec.backend.num_qubits:>8}")
     print()
@@ -99,18 +99,19 @@ def main() -> None:
     # Example 4: Understanding Score Differences
     print("=" * 70)
     print("Example 4: Score Interpretation")
-    print("  Scores are negative error sums - higher (less negative) is better")
+    print("  Scores are success probabilities from 0 to 1 - higher is better")
     print("-" * 70)
 
     print(f"\n  Best backend: {all_recs[0].backend.name}")
     print(f"    Score: {all_recs[0].score_data.score:.6f}")
-    print(f"    Expected error: {-all_recs[0].score_data.score * 100:.3f}%")
+    print(f"    Expected error: {(1 - all_recs[0].score_data.score) * 100:.3f}%")
     print(f"\n  Worst backend: {all_recs[-1].backend.name}")
     print(f"    Score: {all_recs[-1].score_data.score:.6f}")
-    print(f"    Expected error: {-all_recs[-1].score_data.score * 100:.3f}%")
+    print(f"    Expected error: {(1 - all_recs[-1].score_data.score) * 100:.3f}%")
 
-    improvement = (all_recs[-1].score_data.score - all_recs[0].score_data.score)
-    improvement_pct = (-improvement / -all_recs[-1].score_data.score) * 100
+    best_error = 1 - all_recs[0].score_data.score
+    worst_error = 1 - all_recs[-1].score_data.score
+    improvement_pct = (worst_error - best_error) / worst_error * 100
     print(f"\n  Error reduction by choosing best: {improvement_pct:.1f}%")
     print()
 
@@ -125,13 +126,12 @@ def main() -> None:
     print("  Require backends to meet quality threshold")
     print("-" * 70)
 
-    min_score = -0.05  # Require less than 5% expected error
+    min_score = 0.95  # Require at least a 95% success probability
     print(f"\n  Minimum acceptable score: {min_score} (< 5% error)")
-    print("  Note: Scores are negative - higher (less negative) is better")
 
     try:
         filtered_rec = selector.select_backend(qc, min_score=min_score)
-        error_pct = -filtered_rec.score_data.score * 100
+        error_pct = (1 - filtered_rec.score_data.score) * 100
         print(f"  ✓ Found backend: {filtered_rec.backend.name} "
               f"(score: {filtered_rec.score_data.score:.6f}, error: {error_pct:.3f}%)")
     except RuntimeError as e:

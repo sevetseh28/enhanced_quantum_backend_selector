@@ -125,8 +125,8 @@ def test_score_circuit_single_qubit_gates(
     """Test scoring with single-qubit gates only."""
     scorer = CircuitScorer(mock_backend)
     score_result = scorer.score_circuit(single_xgate_circuit)
-    expected_error = 1 - (1 - 0.001) * (1 - 0.02)  # X gate on qubit 0 and its readout
-    assert score_result.score == pytest.approx(-expected_error)
+    expected = (1 - 0.001) * (1 - 0.02)  # X gate on qubit 0 and its readout
+    assert score_result.score == pytest.approx(expected)
     assert score_result.compatible is True
 
     assert "Used qubit(s): [0]" in score_result.reasons
@@ -139,8 +139,8 @@ def test_score_circuit_single_qubit_gate_same_qubit_three_times(
     scorer = CircuitScorer(mock_backend)
     score_result = scorer.score_circuit(single_xgate_circuit_same_qubit_three_times)
     # Three X gates on qubit 0 plus measurement error
-    expected_error = 1 - (1 - 0.001) ** 3 * (1 - 0.02)
-    assert score_result.score == pytest.approx(-expected_error)
+    expected = (1 - 0.001) ** 3 * (1 - 0.02)
+    assert score_result.score == pytest.approx(expected)
     assert score_result.compatible is True
 
     assert "Used qubit(s): [0]" in score_result.reasons
@@ -154,8 +154,8 @@ def test_missing_error_uses_device_mean(mock_backend: BackendV2) -> None:
 
     score_result = CircuitScorer(mock_backend).score_circuit(qc)
 
-    expected_error = 1 - (1 - 0.001) * (1 - 0.02)  # Mean X error on qubits 1, 2 is 0.001
-    assert score_result.score == pytest.approx(-expected_error)
+    expected = (1 - 0.001) * (1 - 0.02)  # Mean X error on qubits 1, 2 is 0.001
+    assert score_result.score == pytest.approx(expected)
 
 
 def test_operation_without_any_error_data_is_reported(mock_backend: BackendV2) -> None:
@@ -167,36 +167,36 @@ def test_operation_without_any_error_data_is_reported(mock_backend: BackendV2) -
 
     score_result = CircuitScorer(mock_backend).score_circuit(qc)
 
-    assert score_result.score == pytest.approx(-0.02)
+    assert score_result.score == pytest.approx(1 - 0.02)
     assert "No error data for: ['x']" in score_result.reasons
 
 
 def test_deep_circuit_score_stays_bounded(mock_backend: BackendV2) -> None:
-    """Expected error never exceeds 100%, however deep the circuit."""
+    """The success probability stays between 0 and 1, however deep the circuit."""
     qc = QuantumCircuit(3)
     for _ in range(2000):
         qc.cx(0, 1)
 
     score_result = CircuitScorer(mock_backend).score_circuit(qc)
 
-    assert -1.0 <= score_result.score < -0.99
+    assert 0.0 <= score_result.score < 0.01
     assert not math.isnan(score_result.score)
 
 
 def test_log_success_probability_separates_saturated_scores(mock_backend: BackendV2) -> None:
-    """When score rounds to -1.0, the log success probability still orders circuits."""
+    """When score underflows to 0, the log success probability still orders circuits."""
     scorer = CircuitScorer(mock_backend)
     results = []
-    for depth in (5000, 6000):
+    for depth in (80_000, 90_000):
         qc = QuantumCircuit(3)
         for _ in range(depth):
             qc.cx(0, 1)
         results.append(scorer.score_circuit(qc))
 
-    assert results[0].score == results[1].score == -1.0
+    assert results[0].score == results[1].score == 0.0
     assert results[0].log_success_probability > results[1].log_success_probability
     assert results[0].log_success_probability == pytest.approx(
-        5000 * math.log(1 - 0.01) + math.log(1 - 0.02) + math.log(1 - 0.03)
+        80_000 * math.log(1 - 0.01) + math.log(1 - 0.02) + math.log(1 - 0.03)
     )
 
 
