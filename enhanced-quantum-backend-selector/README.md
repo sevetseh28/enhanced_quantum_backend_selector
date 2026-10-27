@@ -36,7 +36,7 @@ Quantum computing users typically rely on simplistic backend selection methods l
 - **Transpilation-Based**: Circuits are transpiled to each backend's native gate set
 - **Real Error Calculation**: Combines the actual gate and readout error rates of the specific qubits the transpiler chose, plus decoherence while they sit idle, into an estimated success probability
 - **Multiple Runs**: Averages over multiple transpilation runs for stability (default: 3, configurable)
-- **Direct Quality Metric**: Score = negative expected error, between -1 and 0 (higher is better)
+- **Direct Quality Metric**: Score = estimated success probability, between 0 and 1 (higher is better)
 - **Compatibility Checks**: Backends with too few qubits, that are offline, or that fail to transpile are flagged and ranked last
 
 ## How It Works
@@ -45,7 +45,7 @@ Quantum computing users typically rely on simplistic backend selection methods l
 flowchart TD
     IN["Your circuit + list of BackendV2"] --> BS["BackendSelector<br/>select_backend() / rank_backends()"]
     BS -->|"each backend in parallel"| CHK{"Enough qubits<br/>and operational?"}
-    CHK -->|no| INC["CircuitScore<br/>compatible=False, score=-inf"]
+    CHK -->|no| INC["CircuitScore<br/>compatible=False, score=0"]
     CHK -->|yes| TR["transpile() x N runs<br/>optimization_level=2, seed + run"]
     TR -->|fails| INC
     TR --> CS["CircuitScorer.score_circuit()<br/>success probability =<br/>product of (1 - gate error) x (1 - readout error)<br/>x (1 - idle error from T1/T2)<br/>on the qubits the transpiler chose"]
@@ -107,8 +107,8 @@ selector = BackendSelector(backends)
 best = selector.select_backend(qc)
 
 print(f"Recommended: {best.backend.name}")
-print(f"Score: {best.score_data.score:.3f}")  # Negative expected error
-print(f"Expected error: {-best.score_data.score:.2%}")  # As percentage
+print(f"Score: {best.score_data.score:.3f}")  # Success probability, 0 to 1
+print(f"Expected error: {1 - best.score_data.score:.2%}")  # As percentage
 print(f"Reasons: {', '.join(best.score_data.reasons)}")
 ```
 
@@ -130,7 +130,7 @@ print(f"Reasons: {', '.join(best.score_data.reasons)}")
 rankings = selector.rank_backends(qc, top_n=5)
 
 for rec in rankings:
-    error_pct = -rec.score_data.score * 100
+    error_pct = (1 - rec.score_data.score) * 100
     print(f"#{rec.rank}. {rec.backend.name}: {rec.score_data.score:.4f} ({error_pct:.2f}% error)")
 ```
 

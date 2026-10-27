@@ -86,19 +86,18 @@ rec = selector.select_backend(qc)
 
 print(f"Best backend: {rec.backend.name}")
 print(f"Score: {rec.score_data.score:.3f}")
-print(f"Expected error: {-rec.score_data.score:.2%}")
+print(f"Expected error: {1 - rec.score_data.score:.2%}")
 ```
 
 ### 4. Understanding Scores
 
-- **Score** is the negative expected error: `score = -(1 - ESP)`, where ESP (estimated success probability) is the product of `(1 - error)` over every gate, every used qubit's readout, and the time each qubit spends idle
-- **Higher scores are better** (less negative = lower error)
-- Example: `-0.01` (1% error) is better than `-0.05` (5% error)
+- **Score** is the estimated success probability (ESP): the chance the circuit runs without error, between 0 and 1. It is the product of `(1 - error)` over every gate, every used qubit's readout, and the time each qubit spends idle
+- **Higher scores are better**: `0.99` (1% error) is better than `0.95` (5% error)
 
 The score is calculated by:
 
 1. Transpiling your circuit to the backend (optimization level 2)
-2. Summing error rates for all gates in the transpiled circuit
+2. Multiplying `(1 - error)` for every gate, readout and idle period in the transpiled circuit
 3. Averaging over multiple transpilation runs (default: 3)
 
 ## Complete Example
@@ -128,7 +127,7 @@ rec = selector.select_backend(qc)
 
 print(f"✓ Selected: {rec.backend.name}")
 print(f"  Score: {rec.score_data.score:.3f}")
-print(f"  Expected error: {-rec.score_data.score:.2%}")
+print(f"  Expected error: {1 - rec.score_data.score:.2%}")
 ```
 
 ## Troubleshooting

@@ -39,7 +39,7 @@ selector = BackendSelector(backends)
 best = selector.select_backend(qc)
 
 print(f"Recommended: {best.backend.name}")
-print(f"Expected error: {-best.score_data.score:.2%}")
+print(f"Expected error: {1 - best.score_data.score:.2%}")
 ```
 
 ## Installation

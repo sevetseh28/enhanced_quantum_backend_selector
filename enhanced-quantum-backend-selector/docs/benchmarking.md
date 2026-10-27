@@ -76,7 +76,7 @@ poetry run python benchmarks/run_benchmarks.py --output /path/to/results
         {
           "rank": 1,
           "backend": "ibm_nighthawk",
-          "score": -0.007466,
+          "score": 0.992534,
           "error_percent": 0.747
         }
       ]
@@ -96,7 +96,7 @@ poetry run python benchmarks/run_benchmarks.py --output /path/to/results
 **Performance Metrics:**
 
 - `selection_time_seconds`: Time to select backend
-- `score`: Backend score (negative error)
+- `score`: Estimated success probability, 0 to 1
 - `error_percent`: Expected error percentage
 
 ## Adding New Benchmarks

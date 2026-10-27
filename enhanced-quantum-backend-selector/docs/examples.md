@@ -49,7 +49,7 @@ print(f"Rank: #{rec.rank}")
 top_3 = selector.rank_backends(qc, top_n=3)
 
 for rec in top_3:
-    error_pct = -rec.score_data.score * 100
+    error_pct = (1 - rec.score_data.score) * 100
     print(f"{rec.rank}. {rec.backend.name}")
     print(f"   Score: {rec.score_data.score:.3f}")
     print(f"   Expected error: {error_pct:.2f}%")
@@ -69,7 +69,7 @@ ansatz.measure_all()
 # Select best backend
 rec = selector.select_backend(ansatz)
 print(f"Best backend: {rec.backend.name}")
-print(f"Expected error: {-rec.score_data.score:.2%}")
+print(f"Expected error: {1 - rec.score_data.score:.2%}")
 ```
 
 To compare fractional vs standard gates:
@@ -100,7 +100,7 @@ qc = create_vqe_circuit(4)
 rec = selector.select_backend(qc)
 
 print(f"Best VQE backend: {rec.backend.name}")
-print(f"Expected error: {-rec.score_data.score:.4f}")
+print(f"Expected error: {1 - rec.score_data.score:.4f}")
 ```
 
 ## QAOA Circuit
@@ -138,7 +138,7 @@ def production_backend_selection(circuit, backends):
     try:
         rec = selector.select_backend(circuit, require_compatible=True)
 
-        error_pct = -rec.score_data.score * 100
+        error_pct = (1 - rec.score_data.score) * 100
         if error_pct < 10:
             return rec.backend, "optimal"
         else:
@@ -165,7 +165,7 @@ def batch_backend_selection(circuits, backends):
     results = {}
     for i, circuit in enumerate(circuits):
         rec = selector.select_backend(circuit)
-        error_pct = -rec.score_data.score * 100
+        error_pct = (1 - rec.score_data.score) * 100
         results[f"circuit_{i}"] = {
             "backend": rec.backend.name,
             "score": rec.score_data.score,
@@ -188,7 +188,7 @@ def compare_backends(circuit, backends, top_n=5):
     print("-" * 55)
 
     for rec in recommendations:
-        error_pct = -rec.score_data.score * 100
+        error_pct = (1 - rec.score_data.score) * 100
         print(f"#{rec.rank:<5} {rec.backend.name:<25} "
               f"{rec.score_data.score:>10.4f} {error_pct:>9.2f}%")
 
