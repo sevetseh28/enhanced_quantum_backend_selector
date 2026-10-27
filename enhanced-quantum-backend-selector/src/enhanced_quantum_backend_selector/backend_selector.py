@@ -8,6 +8,7 @@ based on transpilation-based error analysis.
 from __future__ import annotations
 
 import logging
+import math
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from qiskit import transpile
@@ -208,9 +209,12 @@ class BackendSelector:
         # Score backends in parallel for performance
         recommendations = self._score_backends_parallel(circuit)
 
-        # Sort by score (descending), using the input order to break ties
+        # Sort by success probability (descending), using the input order to break ties.
+        # The log keeps deep circuits apart where score rounds to -1.0 for every backend.
         order = {id(backend): i for i, backend in enumerate(self.backends)}
-        recommendations.sort(key=lambda r: (-r.score_data.score, order[id(r.backend)]))
+        recommendations.sort(
+            key=lambda r: (-r.score_data.log_success_probability, order[id(r.backend)])
+        )
 
         # Assign ranks
         for rank, rec in enumerate(recommendations, start=1):
@@ -295,7 +299,7 @@ class BackendSelector:
         scorer = CircuitScorer(backend)
 
         # Transpile and score multiple times, then average
-        scores = []
+        log_successes = []
         all_reasons: list[str] = []
 
         for run_num in range(self.transpilation_runs):
@@ -306,14 +310,17 @@ class BackendSelector:
 
             # Score the transpiled circuit
             score_data = scorer.score_circuit(transpiled)
-            scores.append(score_data.score)
+            log_successes.append(score_data.log_success_probability)
 
             # Collect reasons from first run only to avoid duplication
             if run_num == 0:
                 all_reasons = score_data.reasons.copy()
 
-        # Calculate average score
-        avg_score = sum(scores) / len(scores)
+        # Average the success probabilities, computed in log space so deep circuits
+        # don't underflow, and derive the score from it so score and ranking always
+        # agree. expm1(x) == -(1 - e^x).
+        avg_log_success = _log_mean_exp(log_successes)
+        avg_score = math.expm1(avg_log_success)
 
         # Note whether this backend instance was created with fractional gates
         # (service.backend(name, use_fractional_gates=True)). The selector does not
@@ -322,15 +329,18 @@ class BackendSelector:
 
         # Create averaged score data
         gate_note = "Using fractional gates" if has_fractional else "Using standard gates"
+        success_text = _format_probability(avg_log_success)
         averaged_score_data = CircuitScore(
             backend=backend.name,
             compatible=True,
             reasons=all_reasons
             + [
-                f"Average score over {self.transpilation_runs} transpilation runs: {avg_score:.6f}",
+                f"Average over {self.transpilation_runs} transpilation runs: "
+                f"score {avg_score:.6f}, success probability {success_text}",
                 gate_note,
             ],
             score=avg_score,
+            log_success_probability=avg_log_success,
         )
 
         return BackendRecommendation(
@@ -338,6 +348,20 @@ class BackendSelector:
             score_data=averaged_score_data,
             rank=0,  # Will be assigned during ranking
         )
+
+
+def _log_mean_exp(values: list[float]) -> float:
+    """Log of the mean of ``exp(values)``, without underflow for very negative values."""
+    peak = max(values)
+    if peak == float("-inf"):
+        return peak
+    return peak + math.log(sum(math.exp(v - peak) for v in values) / len(values))
+
+
+def _format_probability(log_probability: float) -> str:
+    """Format a probability given as a log, falling back to e^x when it underflows."""
+    probability = math.exp(log_probability)
+    return f"{probability:.3g}" if probability > 0 else f"e^{log_probability:.1f}"
 
 
 def _incompatible(backend: BackendV2, reason: str) -> BackendRecommendation:
@@ -349,6 +373,7 @@ def _incompatible(backend: BackendV2, reason: str) -> BackendRecommendation:
             compatible=False,
             reasons=[reason],
             score=float("-inf"),
+            log_success_probability=float("-inf"),
         ),
         rank=0,
     )

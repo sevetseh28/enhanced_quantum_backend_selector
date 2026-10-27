@@ -33,12 +33,17 @@ class CircuitScore:
         score: Negative expected error of the circuit, in ``[-1, 0]``. Higher is
             better: ``-0.02`` means a 2% chance the circuit doesn't run error-free.
             Incompatible backends score ``-inf``.
+        log_success_probability: Natural log of the estimated success probability.
+            Backends are ranked by this value: on deep circuits ``score`` rounds to
+            ``-1.0`` for every backend, while this keeps them apart.
+            Incompatible backends have ``-inf``.
     """
 
     backend: str
     compatible: bool
     reasons: list[str] = field(default_factory=list)
     score: float = 0.0
+    log_success_probability: float = 0.0
 
 
 @dataclass

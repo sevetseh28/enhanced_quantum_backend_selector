@@ -181,3 +181,20 @@ def test_deep_circuit_score_stays_bounded(mock_backend: BackendV2) -> None:
 
     assert -1.0 <= score_result.score < -0.99
     assert not math.isnan(score_result.score)
+
+
+def test_log_success_probability_separates_saturated_scores(mock_backend: BackendV2) -> None:
+    """When score rounds to -1.0, the log success probability still orders circuits."""
+    scorer = CircuitScorer(mock_backend)
+    results = []
+    for depth in (5000, 6000):
+        qc = QuantumCircuit(3)
+        for _ in range(depth):
+            qc.cx(0, 1)
+        results.append(scorer.score_circuit(qc))
+
+    assert results[0].score == results[1].score == -1.0
+    assert results[0].log_success_probability > results[1].log_success_probability
+    assert results[0].log_success_probability == pytest.approx(
+        5000 * math.log(1 - 0.01) + math.log(1 - 0.02) + math.log(1 - 0.03)
+    )
