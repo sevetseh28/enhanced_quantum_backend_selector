@@ -117,9 +117,6 @@ The library includes a comprehensive benchmarking suite with real-world quantum 
 # Run full benchmark suite
 poetry run python benchmarks/run_benchmarks.py
 
-# Run example benchmarks
-poetry run python examples/run_benchmarks.py
-
 # Run benchmark tests
 poetry run pytest tests/test_benchmarks.py -v
 ```
