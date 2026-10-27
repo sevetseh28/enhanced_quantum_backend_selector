@@ -20,7 +20,7 @@ jobs:
   publish:
     name: Publish package
     runs-on: ubuntu-latest
-    environment: 
+    environment:
       name: ${{ github.event.inputs.test-pypi == 'true' && 'testpypi' || 'pypi' }}
     permissions:
       id-token: write  # Required for trusted publishing
