@@ -211,7 +211,7 @@ If you use this library in your research, please cite:
 ```bibtex
 @software{enhanced_quantum_backend_selector,
   title = {Enhanced Quantum Backend Selector},
-  author = {sevetseh28},
+  author = {Esteves, Hernan},
   year = {2025},
   url = {https://github.com/sevetseh28/enhanced_quantum_backend_selector}
 }
