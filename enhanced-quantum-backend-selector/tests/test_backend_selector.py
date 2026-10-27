@@ -6,7 +6,9 @@ Tests cover initialization, ranking, selection, caching, and error handling.
 
 import pytest
 from qiskit import QuantumCircuit
+from qiskit.providers.fake_provider import GenericBackendV2
 from qiskit_aer import AerSimulator
+from qiskit_ibm_runtime.fake_provider import FakeSherbrooke, FakeTorino
 
 from enhanced_quantum_backend_selector import (
     BackendRecommendation,
@@ -101,3 +103,124 @@ class TestBackendSelector:
 
         with pytest.raises(ValueError, match="Circuit must have at least one qubit"):
             selector.rank_backends(zero_qubit_circuit)
+
+
+class _Status:
+    """Minimal stand-in for qiskit-ibm-runtime's BackendStatus."""
+
+    def __init__(self, operational: bool, status_msg: str) -> None:
+        self.operational = operational
+        self.status_msg = status_msg
+
+
+class _OfflineBackend(GenericBackendV2):
+    """Generic backend that reports itself as not operational."""
+
+    def status(self) -> _Status:
+        return _Status(operational=False, status_msg="maintenance")
+
+
+class _BrokenBackend(GenericBackendV2):
+    """Generic backend whose target can't be read, so transpilation fails."""
+
+    _broken = False
+
+    def __init__(self, num_qubits: int, seed: int) -> None:
+        super().__init__(num_qubits=num_qubits, seed=seed)
+        self._broken = True
+
+    @property
+    def target(self):
+        if self._broken:
+            raise RuntimeError("calibration data unavailable")
+        return super().target
+
+
+@pytest.fixture
+def bell_circuit() -> QuantumCircuit:
+    """Create a 2-qubit Bell circuit."""
+    qc = QuantumCircuit(2)
+    qc.h(0)
+    qc.cx(0, 1)
+    qc.measure_all()
+    return qc
+
+
+class TestCompatibility:
+    """Backends that can't run the circuit are ranked last and flagged."""
+
+    def test_too_few_qubits_is_incompatible(self):
+        small = GenericBackendV2(num_qubits=2, seed=1)
+        large = GenericBackendV2(num_qubits=5, seed=2)
+        qc = QuantumCircuit(4)
+        qc.h(0)
+        qc.cx(0, 3)
+
+        ranked = BackendSelector([small, large]).rank_backends(qc)
+
+        assert ranked[0].backend is large
+        assert ranked[1].backend is small
+        assert ranked[1].score_data.compatible is False
+        assert ranked[1].score_data.score == float("-inf")
+        assert "needs 4 qubits" in ranked[1].score_data.reasons[0]
+
+    def test_non_operational_backend_is_incompatible(self, bell_circuit):
+        offline = _OfflineBackend(num_qubits=3, seed=1)
+
+        ranked = BackendSelector([offline]).rank_backends(bell_circuit)
+
+        assert ranked[0].score_data.compatible is False
+        assert "not operational (maintenance)" in ranked[0].score_data.reasons[0]
+
+    def test_failing_backend_does_not_hide_others(self, bell_circuit, caplog):
+        broken = _BrokenBackend(num_qubits=3, seed=1)
+        working = GenericBackendV2(num_qubits=3, seed=2)
+
+        ranked = BackendSelector([broken, working]).rank_backends(bell_circuit)
+
+        assert [r.backend for r in ranked] == [working, broken]
+        assert ranked[1].score_data.compatible is False
+        assert "calibration data unavailable" in caplog.text
+
+    def test_select_raises_when_nothing_is_compatible(self, bell_circuit):
+        selector = BackendSelector([_OfflineBackend(num_qubits=3, seed=1)])
+
+        with pytest.raises(RuntimeError, match="No compatible backends found"):
+            selector.select_backend(bell_circuit)
+
+    def test_select_can_return_incompatible_backend(self, bell_circuit):
+        selector = BackendSelector([_OfflineBackend(num_qubits=3, seed=1)])
+
+        best = selector.select_backend(bell_circuit, require_compatible=False)
+
+        assert best.score_data.compatible is False
+
+    def test_min_score_filters_backends(self, bell_circuit):
+        selector = BackendSelector([GenericBackendV2(num_qubits=3, seed=1)])
+
+        with pytest.raises(RuntimeError, match="minimum score threshold"):
+            selector.select_backend(bell_circuit, min_score=0.0)
+
+
+class TestReproducibility:
+    """Seeded selectors produce the same ranking every time."""
+
+    def test_seed_gives_identical_scores(self):
+        backends = [FakeTorino(), FakeSherbrooke()]
+        qc = QuantumCircuit(5)
+        qc.h(0)
+        for i in range(4):
+            qc.cx(i, i + 1)
+        qc.measure_all()
+
+        first = BackendSelector(backends, seed=7).rank_backends(qc)
+        second = BackendSelector(backends, seed=7).rank_backends(qc)
+
+        assert [(r.backend.name, r.score_data.score) for r in first] == [
+            (r.backend.name, r.score_data.score) for r in second
+        ]
+
+    def test_scores_are_expected_errors(self, bell_circuit):
+        ranked = BackendSelector([FakeTorino()], seed=1).rank_backends(bell_circuit)
+
+        assert -1.0 < ranked[0].score_data.score < 0.0
