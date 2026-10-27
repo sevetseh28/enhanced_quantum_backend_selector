@@ -12,7 +12,7 @@ Quantum computing users typically rely on simplistic backend selection methods l
 **Key benefits:**
 
 - **Transpilation-Based**: Circuits are transpiled to each backend's native gate set
-- **Real Error Calculation**: Combines the actual gate and readout error rates of the specific qubits the transpiler chose into an estimated success probability
+- **Real Error Calculation**: Combines the actual gate and readout error rates of the specific qubits the transpiler chose, plus decoherence while they sit idle, into an estimated success probability
 - **Multiple Runs**: Averages over multiple transpilation runs for stability
 - **Fractional Gates Support**: Compare standard and fractional-gate versions of a backend (ideal for chemistry circuits)
 

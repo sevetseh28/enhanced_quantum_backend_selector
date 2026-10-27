@@ -91,7 +91,7 @@ print(f"Expected error: {-rec.score_data.score:.2%}")
 
 ### 4. Understanding Scores
 
-- **Score** is the negative expected error: `score = -(1 - ESP)`, where ESP (estimated success probability) is the product of `(1 - error)` over every gate and every used qubit's readout
+- **Score** is the negative expected error: `score = -(1 - ESP)`, where ESP (estimated success probability) is the product of `(1 - error)` over every gate, every used qubit's readout, and the time each qubit spends idle
 - **Higher scores are better** (less negative = lower error)
 - Example: `-0.01` (1% error) is better than `-0.05` (5% error)
 

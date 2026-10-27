@@ -34,7 +34,7 @@ See the [Quick Start](#quick-start) for a complete example with IBM Quantum back
 Quantum computing users typically rely on simplistic backend selection methods like `least_busy()`, which only considers queue depth. This library provides intelligent backend selection by **transpiling your circuit to each backend** and calculating the actual expected error rates:
 
 - **Transpilation-Based**: Circuits are transpiled to each backend's native gate set
-- **Real Error Calculation**: Combines the actual gate and readout error rates of the specific qubits the transpiler chose into an estimated success probability
+- **Real Error Calculation**: Combines the actual gate and readout error rates of the specific qubits the transpiler chose, plus decoherence while they sit idle, into an estimated success probability
 - **Multiple Runs**: Averages over multiple transpilation runs for stability (default: 3, configurable)
 - **Direct Quality Metric**: Score = negative expected error, between -1 and 0 (higher is better)
 - **Compatibility Checks**: Backends with too few qubits, that are offline, or that fail to transpile are flagged and ranked last
@@ -48,7 +48,7 @@ flowchart TD
     CHK -->|no| INC["CircuitScore<br/>compatible=False, score=-inf"]
     CHK -->|yes| TR["transpile() x N runs<br/>optimization_level=2, seed + run"]
     TR -->|fails| INC
-    TR --> CS["CircuitScorer.score_circuit()<br/>success probability =<br/>product of (1 - gate error) x (1 - readout error)<br/>on the qubits the transpiler chose"]
+    TR --> CS["CircuitScorer.score_circuit()<br/>success probability =<br/>product of (1 - gate error) x (1 - readout error)<br/>x (1 - idle error from T1/T2)<br/>on the qubits the transpiler chose"]
     CS --> AVG["Average the N runs into one CircuitScore<br/>score, log_success_probability, reasons"]
     AVG --> RANK["Rank by log_success_probability"]
     INC --> RANK
@@ -68,7 +68,8 @@ flowchart TD
 
 `BackendSelector` is the entry point. For each backend it transpiles your circuit and
 hands the result to `CircuitScorer`, which looks up the calibrated error of every gate
-and readout on the qubits that were actually used. Each backend ends up with a
+and readout on the qubits that were actually used, plus the decoherence each qubit
+suffers while it waits for others. Each backend ends up with a
 `CircuitScore`, and the ranked list is returned as `BackendRecommendation` objects.
 
 ## Installation
@@ -136,7 +137,7 @@ for rec in rankings:
 ## Limitations
 
 Scores are estimates from reported calibration data. They assume independent errors,
-and leave out crosstalk, idle/decoherence error, and queue time. See
+and leave out crosstalk, dynamical decoupling, and queue time. See
 [Limitations](https://sevetseh28.github.io/enhanced_quantum_backend_selector/user-guide/#limitations)
 for the full list and expected run times.
 
