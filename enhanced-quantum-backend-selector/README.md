@@ -32,6 +32,17 @@ flowchart TD
     AVG --> RANK["Rank by log_success_probability"]
     INC --> RANK
     RANK --> OUT["BackendRecommendation<br/>backend, score_data, rank"]
+
+    classDef io fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef selector fill:#ede9fe,stroke:#7c3aed,color:#4c1d95
+    classDef scorer fill:#dcfce7,stroke:#16a34a,color:#14532d
+    classDef check fill:#fef3c7,stroke:#d97706,color:#78350f
+    classDef bad fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    class IN,OUT io
+    class BS,TR,AVG,RANK selector
+    class CS scorer
+    class CHK check
+    class INC bad
 ```
 
 `BackendSelector` is the entry point. For each backend it transpiles your circuit and
