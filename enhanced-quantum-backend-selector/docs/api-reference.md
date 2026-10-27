@@ -21,7 +21,8 @@ Main class for selecting quantum backends.
 ```python
 BackendSelector(
     backends: List[BackendV2],
-    transpilation_runs: int = 3
+    transpilation_runs: int = 3,
+    seed: int | None = None,
 )
 ```
 
@@ -29,6 +30,7 @@ BackendSelector(
 
 - `backends`: List of BackendV2 instances
 - `transpilation_runs`: Number of transpilation runs for averaging (default: 3)
+- `seed`: Transpiler seed for reproducible rankings (default: None)
 
 ### Methods
 
@@ -38,7 +40,6 @@ BackendSelector(
 def select_backend(
     self,
     circuit: QuantumCircuit,
-    top_n: int | None = None,
     require_compatible: bool = True,
     min_score: float | None = None,
 ) -> BackendRecommendation
@@ -49,13 +50,15 @@ Select the best backend for a circuit.
 **Parameters:**
 
 - `circuit`: The quantum circuit to execute
-- `top_n`: Consider only top N backends (optional)
 - `require_compatible`: Only consider compatible backends (default: True)
 - `min_score`: Minimum acceptable score (optional)
 
 **Returns:** `BackendRecommendation`
 
-**Raises:** `ValueError` if no suitable backend found
+**Raises:**
+
+- `ValueError` if the circuit has no qubits or no operations
+- `RuntimeError` if no backend is compatible or meets `min_score`
 
 #### rank_backends
 
@@ -98,12 +101,13 @@ class CircuitScore:
     backend: str                # Backend name
     compatible: bool            # Whether backend can run the circuit
     reasons: list[str]          # Human-readable explanations
-    score: float                # Negative error sum (higher is better)
+    score: float                # Negative expected error (higher is better)
 ```
 
 **Score interpretation:**
 
-- Score = negative sum of all errors
+- Score = negative expected error: `-(1 - ESP)`, between -1 and 0
+- Incompatible backends have `compatible=False` and a score of `-inf`
 - Higher scores are better (less negative = lower error)
 - Example: `-0.01` (1% error) is better than `-0.05` (5% error)
 
