@@ -2,11 +2,12 @@
 Main backend selector for intelligent quantum backend selection.
 
 This module provides the primary public API for selecting optimal backends
-based on circuit requirements and multi-criteria scoring.
+based on transpilation-based error analysis.
 """
 
 from __future__ import annotations
 
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from qiskit import transpile
@@ -16,26 +17,32 @@ from qiskit.providers import BackendV2
 from enhanced_quantum_backend_selector.circuit_scorer import CircuitScorer
 from enhanced_quantum_backend_selector.models import BackendRecommendation, CircuitScore
 
+logger = logging.getLogger(__name__)
+
 
 class BackendSelector:
     """
-    Intelligent quantum backend selector with multi-criteria scoring.
+    Intelligent quantum backend selector based on transpiled circuit error.
 
-    Analyzes and ranks backends based on circuit requirements considering:
-    - Hardware quality (gate fidelity, coherence times)
-    - Circuit compatibility (qubit count, gate set, connectivity)
-    - Availability (queue depth, operational status)
+    For each backend, the circuit is transpiled to the device and scored by its
+    expected error: the gate errors on the physical qubits the transpiler chose,
+    plus their readout errors. Backends are considered incompatible when:
+    - the circuit needs more qubits than the backend has,
+    - the backend reports that it is not operational, or
+    - transpilation to the backend fails.
 
     Attributes:
         backends: List of available backends to select from.
+        transpilation_runs: Number of transpilations averaged per backend.
+        seed: Base seed for the transpiler, or None for non-deterministic runs.
 
     Examples:
-        >>> from qiskit_aer import AerSimulator
+        >>> from qiskit.providers.fake_provider import GenericBackendV2
         >>> from qiskit import QuantumCircuit
         >>>
         >>> # Initialize with available backends
-        >>> backends = [AerSimulator(), ...]
-        >>> selector = BackendSelector(backends)
+        >>> backends = [GenericBackendV2(5, seed=1), GenericBackendV2(7, seed=2)]
+        >>> selector = BackendSelector(backends, seed=42)
         >>>
         >>> # Create a circuit
         >>> qc = QuantumCircuit(3)
@@ -46,18 +53,19 @@ class BackendSelector:
         >>> # Get best backend
         >>> recommendation = selector.select_backend(qc)
         >>> print(f"Best: {recommendation.backend.name}")
-        >>> print(f"Score: {recommendation.score_data.score:.2f}")
+        >>> print(f"Score: {recommendation.score_data.score:.4f}")
         >>>
         >>> # Or rank all backends
         >>> rankings = selector.rank_backends(qc)
         >>> for i, rec in enumerate(rankings[:3], 1):
-        ...     print(f"{i}. {rec.backend.name}: {rec.score_data.score:.2f}")
+        ...     print(f"{i}. {rec.backend.name}: {rec.score_data.score:.4f}")
     """
 
     def __init__(
         self,
         backends: list[BackendV2],
         transpilation_runs: int = 3,
+        seed: int | None = None,
     ) -> None:
         """
         Initialize the backend selector.
@@ -80,6 +88,9 @@ class BackendSelector:
             transpilation_runs: Number of times to transpile each circuit for
                 averaging (default: 3). Higher values improve accuracy but increase
                 computation time. Must be at least 1.
+            seed: Seed for the transpiler. With a seed, the same inputs always produce
+                the same ranking. Run ``i`` uses ``seed + i``. If None (default),
+                each call may produce slightly different scores.
 
         Raises:
             ValueError: If backends list is empty or transpilation_runs < 1.
@@ -92,6 +103,7 @@ class BackendSelector:
 
         self.backends = backends
         self.transpilation_runs = transpilation_runs
+        self.seed = seed
 
     def select_backend(
         self,
@@ -107,12 +119,12 @@ class BackendSelector:
 
         Args:
             circuit: The quantum circuit to execute.
-            require_compatible: Only consider compatible backends (sufficient
-                qubits, supported gates). If True and no compatible backends
-                exist, raises an exception.
+            require_compatible: Only consider compatible backends (enough qubits,
+                operational, and the circuit transpiles). If True and no compatible
+                backends exist, raises an exception.
             min_score: Minimum acceptable score. Backends below this
-                threshold are excluded. Note: scores are negative (error sums),
-                so -0.01 is better than -0.05.
+                threshold are excluded. Scores are negative expected errors,
+                so -0.01 (1% error) is better than -0.05 (5% error).
 
         Returns:
             BackendRecommendation with the highest-scored backend and details.
@@ -128,24 +140,18 @@ class BackendSelector:
             >>> # With minimum quality threshold (< 5% expected error)
             >>> best = selector.select_backend(circuit, min_score=-0.05)
         """
-        if circuit.num_qubits == 0:
-            raise ValueError("Circuit must have at least one qubit")
-
-        if len(circuit.data) == 0:
-            raise ValueError("Circuit has no operations")
-
-        # Rank all backends
         ranked = self.rank_backends(circuit)
 
         # Filter by compatibility if required
         if require_compatible:
             ranked = [r for r in ranked if r.score_data.compatible]
             if not ranked:
-                gates = {instr.operation.name for instr in circuit.data}
+                gates = sorted({instr.operation.name for instr in circuit.data})
                 raise RuntimeError(
                     "No compatible backends found. "
                     f"Circuit requires {circuit.num_qubits} qubits and "
-                    f"uses gates: {gates}"
+                    f"uses gates: {gates}. See each backend's score_data.reasons "
+                    "from rank_backends() for details."
                 )
 
         # Filter by minimum score if specified
@@ -154,7 +160,7 @@ class BackendSelector:
             if not ranked:
                 raise RuntimeError(
                     f"No backends meet minimum score threshold of {min_score}. "
-                    "Try lowering the threshold or using different scoring weights."
+                    "Try lowering the threshold or adding more backends."
                 )
 
         return ranked[0]
@@ -169,6 +175,8 @@ class BackendSelector:
 
         Analyzes each backend against circuit requirements using transpilation-based
         error analysis. Backends are sorted by score (highest/least negative first).
+        Incompatible backends are included with ``compatible=False`` and a score of
+        ``-inf``, so they always rank last.
 
         Args:
             circuit: The quantum circuit to analyze and match against backends.
@@ -176,8 +184,7 @@ class BackendSelector:
 
         Returns:
             List of BackendRecommendation objects sorted by score (highest first).
-            Each recommendation includes backend reference, scores, metrics, and rank.
-            Scores are negative error sums where higher (less negative) is better.
+            Each recommendation includes backend reference, scores, reasons, and rank.
 
         Raises:
             ValueError: If circuit is empty or has no operations.
@@ -201,8 +208,9 @@ class BackendSelector:
         # Score backends in parallel for performance
         recommendations = self._score_backends_parallel(circuit)
 
-        # Sort by score (descending)
-        recommendations.sort(key=lambda r: r.score_data.score, reverse=True)
+        # Sort by score (descending), using the input order to break ties
+        order = {id(backend): i for i, backend in enumerate(self.backends)}
+        recommendations.sort(key=lambda r: (-r.score_data.score, order[id(r.backend)]))
 
         # Assign ranks
         for rank, rec in enumerate(recommendations, start=1):
@@ -221,8 +229,8 @@ class BackendSelector:
         """
         Score backends in parallel using ThreadPoolExecutor.
 
-        Each backend is automatically evaluated with both standard and fractional
-        gate configurations, keeping the best result.
+        A backend that fails to score is logged and returned as incompatible,
+        so one bad backend never hides the others.
 
         Args:
             circuit: The quantum circuit to score against.
@@ -244,13 +252,14 @@ class BackendSelector:
 
             # Collect results as they complete
             for future in as_completed(future_to_backend):
+                backend = future_to_backend[future]
                 try:
-                    recommendation = future.result()
-                    recommendations.append(recommendation)
+                    recommendations.append(future.result())
                 except Exception as e:
-                    backend = future_to_backend[future]
-                    # Log error but continue with other backends
-                    print(f"Warning: Failed to score backend {backend.name}: {e}")
+                    logger.warning("Failed to score backend %s: %s", backend.name, e)
+                    recommendations.append(
+                        _incompatible(backend, f"Failed to transpile or score: {e}")
+                    )
 
         return recommendations
 
@@ -272,17 +281,28 @@ class BackendSelector:
         Returns:
             BackendRecommendation for this backend.
         """
+        if circuit.num_qubits > backend.num_qubits:
+            return _incompatible(
+                backend,
+                f"Circuit needs {circuit.num_qubits} qubits, " f"backend has {backend.num_qubits}",
+            )
+
+        not_operational = _not_operational_reason(backend)
+        if not_operational:
+            return _incompatible(backend, not_operational)
+
         # Create scorer for this backend
         scorer = CircuitScorer(backend)
 
         # Transpile and score multiple times, then average
         scores = []
-        all_reasons = []
+        all_reasons: list[str] = []
 
         for run_num in range(self.transpilation_runs):
-            # Transpile the circuit to this backend
-            # Each run may produce different results due to stochastic nature
-            transpiled = transpile(circuit, backend=backend, optimization_level=2)
+            seed = None if self.seed is None else self.seed + run_num
+            transpiled = transpile(
+                circuit, backend=backend, optimization_level=2, seed_transpiler=seed
+            )
 
             # Score the transpiled circuit
             score_data = scorer.score_circuit(transpiled)
@@ -295,17 +315,16 @@ class BackendSelector:
         # Calculate average score
         avg_score = sum(scores) / len(scores)
 
-        # Detect if this backend uses fractional gates
-        # Expected backend API: backends supporting fractional gates should have
-        # a boolean attribute `use_fractional_gates` set to True
-        # (set via service.backend(name, use_fractional_gates=True))
+        # Note whether this backend instance was created with fractional gates
+        # (service.backend(name, use_fractional_gates=True)). The selector does not
+        # try both variants itself: pass both instances to compare them.
         has_fractional = getattr(backend, "use_fractional_gates", False)
 
         # Create averaged score data
         gate_note = "Using fractional gates" if has_fractional else "Using standard gates"
         averaged_score_data = CircuitScore(
             backend=backend.name,
-            compatible=True,  # If transpilation succeeded, it's compatible
+            compatible=True,
             reasons=all_reasons
             + [
                 f"Average score over {self.transpilation_runs} transpilation runs: {avg_score:.6f}",
@@ -319,3 +338,38 @@ class BackendSelector:
             score_data=averaged_score_data,
             rank=0,  # Will be assigned during ranking
         )
+
+
+def _incompatible(backend: BackendV2, reason: str) -> BackendRecommendation:
+    """Build a recommendation for a backend that cannot run the circuit."""
+    return BackendRecommendation(
+        backend=backend,
+        score_data=CircuitScore(
+            backend=backend.name,
+            compatible=False,
+            reasons=[reason],
+            score=float("-inf"),
+        ),
+        rank=0,
+    )
+
+
+def _not_operational_reason(backend: BackendV2) -> str | None:
+    """
+    Return why the backend is not operational, or None if it is (or can't tell).
+
+    ``BackendV2`` has no standard status API, so this relies on the ``status()``
+    method that providers such as qiskit-ibm-runtime expose.
+    """
+    status_method = getattr(backend, "status", None)
+    if not callable(status_method):
+        return None
+    try:
+        status = status_method()
+    except Exception as e:
+        logger.debug("Could not get status of backend %s: %s", backend.name, e)
+        return None
+    if getattr(status, "operational", True) is False:
+        message = getattr(status, "status_msg", "") or "no status message"
+        return f"Backend is not operational ({message})"
+    return None
