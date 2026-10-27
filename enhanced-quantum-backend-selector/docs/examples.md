@@ -132,7 +132,7 @@ print(f"Best QAOA backend: {rec.backend.name}")
 
 ```python
 def production_backend_selection(circuit, backends):
-    """Production-ready backend selection with fallbacks."""
+    """Production-ready backend selection with error handling."""
     selector = BackendSelector(backends)
 
     try:
@@ -144,10 +144,12 @@ def production_backend_selection(circuit, backends):
         else:
             return rec.backend, "acceptable"
 
-    except ValueError as e:
+    except RuntimeError as e:
+        # No backend can run this circuit; each backend's reasons say why
         print(f"Warning: {e}")
-        all_recs = selector.rank_backends(circuit)
-        return all_recs[0].backend, "fallback"
+        for rec in selector.rank_backends(circuit):
+            print(f"  {rec.backend.name}: {rec.score_data.reasons[0]}")
+        return None, "unavailable"
 
 backend, quality = production_backend_selection(qc, backends)
 print(f"Selected: {backend.name} (quality: {quality})")

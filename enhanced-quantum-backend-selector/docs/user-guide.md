@@ -175,9 +175,9 @@ in mind when comparing backends:
 ```python
 try:
     rec = selector.select_backend(qc)
-except ValueError as e:
+except RuntimeError as e:
+    # No backend can run the circuit, or none met min_score
     print(f"Selection failed: {e}")
-    # Fallback logic
 ```
 
 ### 2. Validate Recommendations
@@ -217,10 +217,12 @@ def select_production_backend(circuit, backends):
         else:
             return rec.backend, "acceptable"
 
-    except ValueError:
-        # Fallback to first available
-        rankings = selector.rank_backends(circuit)
-        return rankings[0].backend, "fallback"
+    except RuntimeError as e:
+        # No backend can run this circuit; each backend's reasons say why
+        print(f"Warning: {e}")
+        for rec in selector.rank_backends(circuit):
+            print(f"  {rec.backend.name}: {rec.score_data.reasons[0]}")
+        return None, "unavailable"
 ```
 
 ## Next Steps
