@@ -6,7 +6,7 @@ selection quality and ensure recommendations outperform simple heuristics.
 """
 
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import QFT
+from qiskit.circuit.library import QFTGate
 
 
 def create_ghz_circuit(num_qubits: int) -> QuantumCircuit:
@@ -92,8 +92,7 @@ def create_qft_circuit(num_qubits: int) -> QuantumCircuit:
     qc = QuantumCircuit(num_qubits, name=f"QFT-{num_qubits}")
 
     # Use Qiskit's built-in QFT
-    qft = QFT(num_qubits)
-    qc.compose(qft, inplace=True)
+    qc.append(QFTGate(num_qubits), range(num_qubits))
 
     qc.measure_all()
 

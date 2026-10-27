@@ -10,7 +10,7 @@ you would get both versions: service.backend('name') and service.backend('name',
 """
 
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import EfficientSU2
+from qiskit.circuit.library import efficient_su2
 from qiskit.providers.fake_provider import GenericBackendV2
 
 from enhanced_quantum_backend_selector import BackendSelector
@@ -39,7 +39,7 @@ def main() -> None:
     print("-" * 70)
 
     # Create a typical chemistry ansatz
-    ansatz = EfficientSU2(num_qubits=4, reps=2, entanglement="linear")
+    ansatz = efficient_su2(num_qubits=4, reps=2, entanglement="linear")
     ansatz.measure_all()
 
     print(f"  Circuit: {ansatz.num_qubits} qubits, depth {ansatz.depth()}")

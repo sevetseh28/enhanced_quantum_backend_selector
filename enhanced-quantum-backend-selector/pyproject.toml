@@ -107,6 +107,13 @@ addopts = "--strict-markers --cov=src/enhanced_quantum_backend_selector --cov-re
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
 ]
+# Fail on deprecated APIs called from our own code, so we're ready for the next major
+# Qiskit release. Deprecations raised inside dependencies are left as warnings.
+filterwarnings = [
+    "error::DeprecationWarning:enhanced_quantum_backend_selector.*",
+    "error::DeprecationWarning:tests.*",
+    "error::DeprecationWarning:benchmarks.*",
+]
 
 [tool.coverage.run]
 source = ["src"]
