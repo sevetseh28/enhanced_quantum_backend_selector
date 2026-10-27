@@ -30,7 +30,7 @@ The score is based on **transpilation-based error estimation**:
 rec = selector.select_backend(qc)
 
 print(f"Backend: {rec.backend.name}")
-print(f"Score: {rec.score_data.score:.3f}")  # Negative error sum
+print(f"Score: {rec.score_data.score:.3f}")  # Negative expected error
 print(f"Expected error: {-rec.score_data.score:.2%}")
 
 # Human-readable reasons
@@ -40,7 +40,9 @@ for reason in rec.score_data.reasons:
 
 **Score interpretation:**
 
-- Score is the negative sum of all errors: `score = -total_error`
+- Score is the negative expected error: `score = -(1 - ESP)`, between -1 and 0
+- Incompatible backends (too few qubits, offline, or transpilation failed) have `compatible=False` and a score of `-inf`
+- Pass `seed=` to `BackendSelector` for reproducible scores
 - **Higher scores are better** (less negative = lower error)
 - `-0.01` (1% error) is better than `-0.05` (5% error)
 

@@ -1,9 +1,8 @@
 # Enhanced Quantum Backend Selector
 
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen.svg)](https://github.com/sevetseh28/enhanced_quantum_backend_selector)
-[![Coverage](https://img.shields.io/badge/coverage->80%25-brightgreen.svg)](https://github.com/sevetseh28/enhanced_quantum_backend_selector)
-[![PyPI](https://img.shields.io/badge/pypi-v0.1.0-blue.svg)](https://pypi.org/project/enhanced-quantum-backend-selector/)
-[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://github.com/sevetseh28/enhanced_quantum_backend_selector/actions/workflows/test.yml/badge.svg)](https://github.com/sevetseh28/enhanced_quantum_backend_selector/actions/workflows/test.yml)
+[![PyPI](https://img.shields.io/pypi/v/enhanced-quantum-backend-selector.svg)](https://pypi.org/project/enhanced-quantum-backend-selector/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-000000.svg)](https://github.com/astral-sh/ruff)
 
@@ -14,9 +13,10 @@ Intelligent quantum backend selection for Qiskit circuits using transpilation-ba
 Quantum computing users typically rely on simplistic backend selection methods like `least_busy()`, which only considers queue depth. This library provides intelligent backend selection by **transpiling your circuit to each backend** and calculating the actual expected error rates:
 
 - **Transpilation-Based**: Circuits are transpiled to each backend's native gate set
-- **Real Error Calculation**: Sums actual error rates for the specific qubits and gates used
+- **Real Error Calculation**: Combines the actual gate and readout error rates of the specific qubits the transpiler chose into an estimated success probability
 - **Multiple Runs**: Averages over multiple transpilation runs for stability (default: 3, configurable)
-- **Direct Quality Metric**: Score = negative total error (higher is better)
+- **Direct Quality Metric**: Score = negative expected error, between -1 and 0 (higher is better)
+- **Compatibility Checks**: Backends with too few qubits, that are offline, or that fail to transpile are flagged and ranked last
 
 ## Installation
 
@@ -53,7 +53,7 @@ selector = BackendSelector(backends)
 best = selector.select_backend(qc)
 
 print(f"Recommended: {best.backend.name}")
-print(f"Score: {best.score_data.score:.3f}")  # Negative error sum
+print(f"Score: {best.score_data.score:.3f}")  # Negative expected error
 print(f"Expected error: {-best.score_data.score:.2%}")  # As percentage
 print(f"Reasons: {', '.join(best.score_data.reasons)}")
 ```
@@ -61,10 +61,10 @@ print(f"Reasons: {', '.join(best.score_data.reasons)}")
 ## Features
 
 - ✅ **Transpilation-Based Scoring**: Calculates actual error rates for your specific circuit
-- ✅ **Fractional Gates Support**: Automatically evaluates with/without fractional gates for chemistry circuits
+- ✅ **Fractional Gates Support**: Pass standard and fractional-gate versions of a backend to compare them for chemistry circuits
+- ✅ **Reproducible Rankings**: Pass `seed=` to get the same ranking every run
 - ✅ **Provider Agnostic**: Works with any Qiskit BackendV2 provider (IBM, Aer, etc.)
 - ✅ **Multiple Run Averaging**: Configurable transpilation runs (default: 3) for stable scoring
-- ✅ **Smart Caching**: 1-hour TTL cache minimizes backend queries
 - ✅ **Parallel Processing**: Scores multiple backends concurrently (up to 10 workers)
 - ✅ **Comprehensive Type Hints**: Full mypy strict mode compliance
 - ✅ **Extensive Documentation**: Detailed docstrings with examples

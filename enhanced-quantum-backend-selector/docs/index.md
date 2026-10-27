@@ -2,7 +2,7 @@
 
 Intelligent quantum backend selection for Qiskit circuits using transpilation-based error analysis.
 
-[![Python](https://img.shields.io/badge/python-3.12%2B-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ## Overview
@@ -12,9 +12,9 @@ Quantum computing users typically rely on simplistic backend selection methods l
 **Key benefits:**
 
 - **Transpilation-Based**: Circuits are transpiled to each backend's native gate set
-- **Real Error Calculation**: Sums actual error rates for the specific qubits and gates used
+- **Real Error Calculation**: Combines the actual gate and readout error rates of the specific qubits the transpiler chose into an estimated success probability
 - **Multiple Runs**: Averages over multiple transpilation runs for stability
-- **Fractional Gates Support**: Evaluates both standard and fractional gates (ideal for chemistry circuits)
+- **Fractional Gates Support**: Compare standard and fractional-gate versions of a backend (ideal for chemistry circuits)
 
 ## Quick Start
 
@@ -57,7 +57,7 @@ poetry add enhanced-quantum-backend-selector
 ## Key Features
 
 - ✅ **Transpilation-Based Scoring** - Calculates actual error rates for your specific circuit
-- ✅ **Fractional Gates Support** - Automatically evaluates with/without fractional gates
+- ✅ **Fractional Gates Support** - Compare standard and fractional-gate versions of a backend
 - ✅ **Provider Agnostic** - Works with any Qiskit BackendV2 provider
 - ✅ **Multiple Run Averaging** - Configurable transpilation runs for stable scoring
 - ✅ **Parallel Processing** - Scores multiple backends concurrently

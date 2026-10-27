@@ -27,7 +27,7 @@ The library implements intelligent backend selection using **transpilation-based
 ┌────────────────────────────────────────────────┐
 │              CircuitScorer                      │
 │  - Error calculation                            │
-│  - Gate error summation                         │
+│  - Estimated success probability                │
 │  - Readout error handling                       │
 └───────────────────┬────────────────────────────┘
                     │
@@ -55,9 +55,12 @@ The library implements intelligent backend selection using **transpilation-based
 
 **Scoring method:**
 
-1. Sum error rates for each gate operation in transpiled circuit
-2. Add readout error for each used qubit
-3. Return negative error sum: `score = -total_error`
+1. Multiply `(1 - error)` for each gate operation in the transpiled circuit
+2. Multiply `(1 - readout_error)` for each used qubit
+3. Return the negative expected error: `score = -(1 - ESP)`
+
+Gates with no reported error use the mean error of that gate across the device, so
+missing calibration data never makes a backend look better.
 
 **Note:** Transpilation happens in `BackendSelector`, which then passes the transpiled circuit to the scorer.
 
@@ -65,9 +68,9 @@ The library implements intelligent backend selection using **transpilation-based
 
 ```python
 # Score formula (in CircuitScorer)
-total_error = sum(gate.error_rate for gate in transpiled_circuit)
-total_error += sum(qubit.readout_error for qubit in used_qubits)
-score = -total_error
+esp = prod(1 - gate.error_rate for gate in transpiled_circuit)
+esp *= prod(1 - qubit.readout_error for qubit in used_qubits)
+score = -(1 - esp)
 
 # Averaging (in BackendSelector)
 final_score = mean([score_run1, score_run2, score_run3])
@@ -93,7 +96,7 @@ class CircuitScore:
     backend: str
     compatible: bool
     reasons: list[str]
-    score: float  # Negative error sum
+    score: float  # Negative expected error
 ```
 
 ## Data Flow
