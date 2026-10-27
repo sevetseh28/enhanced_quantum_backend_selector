@@ -94,7 +94,6 @@ enhanced-quantum-backend-selector/
 ├── src/enhanced_quantum_backend_selector/
 │   ├── __init__.py
 │   ├── backend_selector.py
-│   ├── backend_analyzer.py
 │   ├── circuit_scorer.py
 │   └── models.py
 ├── tests/

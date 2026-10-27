@@ -115,21 +115,6 @@ rec = selector.select_backend(chemistry_circuit)
 
 ## Performance
 
-### Caching
-
-Backend analyzers are cached per-selector instance:
-
-```python
-# First call creates analyzer
-rec1 = selector.select_backend(qc1)
-
-# Second call reuses cached analyzer
-rec2 = selector.select_backend(qc2)
-
-# Clear cache to force fresh analysis
-selector.clear_cache()
-```
-
 ### Parallel Processing
 
 Multiple backends are scored in parallel (up to 10 workers) automatically.

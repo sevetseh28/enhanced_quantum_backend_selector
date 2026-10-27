@@ -119,11 +119,6 @@ class CircuitScore:
 - Uses ThreadPoolExecutor with max 10 workers
 - Analyzes all backends concurrently
 
-### Caching
-
-- Backend analyzers cached per-selector instance
-- Use `selector.clear_cache()` to force fresh analysis
-
 ### Configurable Accuracy
 
 - Default: 3 transpilation runs
