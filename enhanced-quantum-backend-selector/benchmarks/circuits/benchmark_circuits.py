@@ -15,7 +15,7 @@ Import directly.
 """
 
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import QAOAAnsatz
+from qiskit.circuit.library import qaoa_ansatz
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_device_benchmarking.mirror_test.mirror_pub import MirrorPubOptions
 
@@ -357,14 +357,14 @@ def create_qaoa_circuit(num_qubits: int = 4, num_layers: int = 1) -> QuantumCirc
     cost_operator = SparsePauliOp.from_list(pauli_list)
 
     # Create QAOA ansatz
-    qaoa_ansatz = QAOAAnsatz(cost_operator, reps=num_layers)
+    ansatz = qaoa_ansatz(cost_operator, reps=num_layers)
 
     # Convert to circuit with specific parameter values
     qc = QuantumCircuit(num_qubits, name=f"QAOA-{num_qubits}q-{num_layers}L")
 
     # Bind parameters to specific values for benchmarking
-    params = [0.1 * (i + 1) for i in range(qaoa_ansatz.num_parameters)]
-    bound_ansatz = qaoa_ansatz.assign_parameters(params)
+    params = [0.1 * (i + 1) for i in range(ansatz.num_parameters)]
+    bound_ansatz = ansatz.assign_parameters(params)
 
     qc.compose(bound_ansatz, inplace=True)
     qc.measure_all()

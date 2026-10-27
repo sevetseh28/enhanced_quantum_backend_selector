@@ -209,8 +209,8 @@ class TestBenchmarkCircuits:
         # - Mixer layer: 4 RX gates (X rotations on each qubit)
         # - Measurements: 4
 
-        # The high-level circuit has QAOA gate, decompose to check structure
-        decomposed = qc.decompose().decompose()
+        # qaoa_ansatz() returns the circuit already expanded into these gates
+        decomposed = qc
         ops = decomposed.count_ops()
 
         # Check expected gate counts after decomposition
