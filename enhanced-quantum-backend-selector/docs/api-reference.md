@@ -136,7 +136,6 @@ CircuitScore
 enhanced_quantum_backend_selector/
 ├── __init__.py              # Public API exports
 ├── backend_selector.py      # BackendSelector class
-├── backend_analyzer.py      # Internal: Backend analysis
 ├── circuit_scorer.py        # Internal: Circuit scoring
 └── models.py                # Data models
 ```
