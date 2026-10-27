@@ -30,13 +30,15 @@ class CircuitScore:
         backend: Name of the backend that was scored.
         compatible: Whether the backend is compatible with the circuit.
         reasons: List of human-readable reasons explaining the score.
-        score: Overall score (0-100), higher is better.
+        score: Negative expected error of the circuit, in ``[-1, 0]``. Higher is
+            better: ``-0.02`` means a 2% chance the circuit doesn't run error-free.
+            Incompatible backends score ``-inf``.
     """
 
     backend: str
     compatible: bool
     reasons: list[str] = field(default_factory=list)
-    score: float = 100.0
+    score: float = 0.0
 
 
 @dataclass

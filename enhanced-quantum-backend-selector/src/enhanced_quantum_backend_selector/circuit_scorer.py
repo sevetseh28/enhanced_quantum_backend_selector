@@ -4,6 +4,10 @@ Circuit scoring module.
 This module provides tools for scoring quantum backends based on circuit requirements.
 """
 
+from __future__ import annotations
+
+import math
+
 from qiskit.circuit import QuantumCircuit
 from qiskit.providers import BackendV2
 
@@ -11,7 +15,18 @@ from enhanced_quantum_backend_selector.models import SKIP_OPERATIONS, CircuitSco
 
 
 class CircuitScorer:
-    """Scores backends for quantum circuits based on transpiled error analysis."""
+    """Scores backends for quantum circuits based on transpiled error analysis.
+
+    The score is built from the estimated success probability (ESP) of the circuit,
+    the product of ``(1 - error)`` over every gate in the circuit and the readout of
+    every qubit it uses. The reported score is ``-(1 - ESP)``, the negative expected
+    error, so it lies in ``[-1, 0]`` and higher is better.
+
+    When the backend reports no error for a specific gate/qubit pair, the mean error of
+    that operation across the rest of the device is used instead, so missing calibration
+    data never makes a backend look better than it is. Operations with no error data
+    anywhere on the device contribute nothing and are listed in the score reasons.
+    """
 
     def __init__(self, backend: BackendV2):
         """
@@ -22,16 +37,14 @@ class CircuitScorer:
         """
         self.backend = backend
         self.target = backend.target
+        self._mean_errors: dict[str, float | None] = {}
 
     def score_circuit(
         self,
         circuit: QuantumCircuit,
     ) -> CircuitScore:
         """
-        Score this backend for a specific circuit based on qubit errors.
-
-        The score is calculated by summing up the error rates of all qubits
-        used in the circuit. Lower total error = better score.
+        Score this backend for a specific circuit based on gate and readout errors.
 
         Args:
             circuit: The quantum circuit to score against (should be transpiled)
@@ -39,21 +52,16 @@ class CircuitScorer:
         Returns:
             CircuitScore containing compatibility and scoring information
         """
-        # Calculate total error for the circuit
-        total_error = self._calculate_total_error(circuit)
-
-        # Get used qubits for scoring reasons
         used_qubits = self._get_used_qubits(circuit)
+        log_success, missing = self._log_success_probability(circuit, used_qubits)
+        expected_error = 1.0 - math.exp(log_success)
 
-        # Create score data with results
-        score_data = CircuitScore(
+        return CircuitScore(
             backend=self.backend.name,
             compatible=True,
-            reasons=self._build_score_reasons(used_qubits, total_error),
-            score=-total_error,  # Negative so higher score = lower error
+            reasons=self._build_score_reasons(used_qubits, expected_error, missing),
+            score=-expected_error,  # Negative so higher score = lower error
         )
-
-        return score_data
 
     def _get_used_qubits(self, circuit: QuantumCircuit) -> set[int]:
         """
@@ -71,75 +79,78 @@ class CircuitScorer:
                 used_qubits.add(circuit.find_bit(qubit).index)
         return used_qubits
 
-    def _calculate_total_error(self, circuit: QuantumCircuit) -> float:
+    def _log_success_probability(
+        self, circuit: QuantumCircuit, used_qubits: set[int]
+    ) -> tuple[float, set[str]]:
         """
-        Calculate total error from gates in the circuit.
+        Calculate the log of the estimated success probability of the circuit.
 
-        Sums up errors for each gate operation in the circuit, plus readout errors
-        for all used qubits.
+        Accumulates ``log(1 - error)`` for each gate in the circuit, plus the readout
+        error of every used qubit. Working in log space avoids underflow on deep circuits.
 
         Args:
             circuit: The quantum circuit (should be transpiled to backend)
+            used_qubits: Physical qubits used by the circuit
 
         Returns:
-            Total error rate (sum of all error sources)
+            Tuple of (log success probability, names of operations without error data)
         """
-        if not circuit.data:
-            return 0.0
+        log_success = 0.0
+        missing: set[str] = set()
 
-        total_error = 0.0
-
-        # Sum errors for each gate operation in the circuit
         for instruction in circuit.data:
             op_name = instruction.operation.name
 
             # Skip non-gate operations
-            if op_name in SKIP_OPERATIONS:
+            if op_name in SKIP_OPERATIONS or op_name not in self.target.operation_names:
                 continue
 
-            # Get the qubits this operation acts on
             qargs = tuple(circuit.find_bit(qubit).index for qubit in instruction.qubits)
-
-            # Get error for this specific gate on these qubits
-            if op_name in self.target.operation_names:
-                props = self.target[op_name].get(qargs)
-                if props and props.error is not None:
-                    total_error += props.error
+            error = self._gate_error(op_name, qargs)
+            if error is None:
+                missing.add(op_name)
+            else:
+                log_success += _log_fidelity(error)
 
         # Add readout errors for all used qubits (once per qubit)
-        used_qubits = self._get_used_qubits(circuit)
-        total_error += self._sum_readout_errors(used_qubits)
+        if "measure" in self.target.operation_names:
+            for qubit in used_qubits:
+                error = self._gate_error("measure", (qubit,))
+                if error is None:
+                    missing.add("measure")
+                else:
+                    log_success += _log_fidelity(error)
 
-        return total_error
+        return log_success, missing
 
-    def _sum_readout_errors(self, used_qubits: set[int]) -> float:
-        """Sum readout errors for used qubits."""
-        if "measure" not in self.target.operation_names:
-            return 0.0
+    def _gate_error(self, op_name: str, qargs: tuple[int, ...]) -> float | None:
+        """Error of an operation on specific qubits, falling back to the device mean."""
+        props = self.target[op_name].get(qargs)
+        if props is not None and props.error is not None:
+            return float(props.error)
+        return self._mean_error(op_name)
 
-        error_sum = 0.0
-        qargs_list = self.target.qargs_for_operation_name("measure")
+    def _mean_error(self, op_name: str) -> float | None:
+        """Mean reported error of an operation across the device, or None if unknown."""
+        if op_name not in self._mean_errors:
+            errors = [
+                props.error
+                for props in self.target[op_name].values()
+                if props is not None and props.error is not None
+            ]
+            self._mean_errors[op_name] = sum(errors) / len(errors) if errors else None
+        return self._mean_errors[op_name]
 
-        if not qargs_list:
-            return 0.0
-
-        for qargs in qargs_list:
-            if len(qargs) != 1 or qargs[0] not in used_qubits:
-                continue
-
-            props = self.target["measure"].get(qargs)
-            if props and props.error is not None:
-                error_sum += props.error
-
-        return error_sum
-
-    def _build_score_reasons(self, used_qubits: set[int], total_error: float) -> list[str]:
+    def _build_score_reasons(
+        self, used_qubits: set[int], expected_error: float, missing: set[str]
+    ) -> list[str]:
         """
         Build human-readable reasons explaining the score.
 
         Args:
             used_qubits: Set of qubit indices used in the circuit
-            total_error: Total error rate calculated
+            expected_error: Expected error of the circuit (1 - success probability)
+            missing: Operations for which the backend reports no error data
 
         Returns:
             List of reason strings
@@ -147,7 +158,15 @@ class CircuitScorer:
         if not used_qubits:
             return ["No qubits used in circuit"]
 
-        return [
-            f"Total error on {len(used_qubits)} qubit(s): {total_error * 100:.6f}%",
+        reasons = [
+            f"Expected error on {len(used_qubits)} qubit(s): {expected_error * 100:.6f}%",
             f"Used qubit(s): {sorted(used_qubits)}",
         ]
+        if missing:
+            reasons.append(f"No error data for: {sorted(missing)}")
+        return reasons
+
+
+def _log_fidelity(error: float) -> float:
+    """Log of ``1 - error``, clamped so an error of 1 doesn't raise."""
+    return math.log(max(1.0 - error, 1e-300))

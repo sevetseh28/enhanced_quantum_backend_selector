@@ -1,5 +1,7 @@
 """Tests for CircuitScorer functionality."""
 
+import math
+
 import pytest
 from qiskit.circuit import QuantumCircuit
 from qiskit.circuit.library import CXGate, Measure, XGate
@@ -123,7 +125,8 @@ def test_score_circuit_single_qubit_gates(
     """Test scoring with single-qubit gates only."""
     scorer = CircuitScorer(mock_backend)
     score_result = scorer.score_circuit(single_xgate_circuit)
-    assert score_result.score == 0 - (0.001 + 0.02)
+    expected_error = 1 - (1 - 0.001) * (1 - 0.02)  # X gate on qubit 0 and its readout
+    assert score_result.score == pytest.approx(-expected_error)
     assert score_result.compatible is True
 
     assert "Used qubit(s): [0]" in score_result.reasons
@@ -135,8 +138,46 @@ def test_score_circuit_single_qubit_gate_same_qubit_three_times(
     """Test scoring with single-qubit gates on the same qubit multiple times."""
     scorer = CircuitScorer(mock_backend)
     score_result = scorer.score_circuit(single_xgate_circuit_same_qubit_three_times)
-    expected_error = 3 * 0.001 + 0.02  # Three X gates on qubit 0 plus measurement error
-    assert score_result.score == 0 - expected_error
+    # Three X gates on qubit 0 plus measurement error
+    expected_error = 1 - (1 - 0.001) ** 3 * (1 - 0.02)
+    assert score_result.score == pytest.approx(-expected_error)
     assert score_result.compatible is True
 
     assert "Used qubit(s): [0]" in score_result.reasons
+
+
+def test_missing_error_uses_device_mean(mock_backend: BackendV2) -> None:
+    """A gate with no reported error is charged the mean error of that gate."""
+    mock_backend.target.update_instruction_properties("x", (0,), InstructionProperties())
+    qc = QuantumCircuit(3)
+    qc.x(0)
+
+    score_result = CircuitScorer(mock_backend).score_circuit(qc)
+
+    expected_error = 1 - (1 - 0.001) * (1 - 0.02)  # Mean X error on qubits 1, 2 is 0.001
+    assert score_result.score == pytest.approx(-expected_error)
+
+
+def test_operation_without_any_error_data_is_reported(mock_backend: BackendV2) -> None:
+    """Operations with no error data anywhere are listed in the reasons."""
+    for qargs in [(0,), (1,), (2,)]:
+        mock_backend.target.update_instruction_properties("x", qargs, InstructionProperties())
+    qc = QuantumCircuit(3)
+    qc.x(0)
+
+    score_result = CircuitScorer(mock_backend).score_circuit(qc)
+
+    assert score_result.score == pytest.approx(-0.02)
+    assert "No error data for: ['x']" in score_result.reasons
+
+
+def test_deep_circuit_score_stays_bounded(mock_backend: BackendV2) -> None:
+    """Expected error never exceeds 100%, however deep the circuit."""
+    qc = QuantumCircuit(3)
+    for _ in range(2000):
+        qc.cx(0, 1)
+
+    score_result = CircuitScorer(mock_backend).score_circuit(qc)
+
+    assert -1.0 <= score_result.score < -0.99
+    assert not math.isnan(score_result.score)
