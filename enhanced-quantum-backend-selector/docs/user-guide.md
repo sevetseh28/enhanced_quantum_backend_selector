@@ -7,7 +7,8 @@ This guide covers all features of the Enhanced Quantum Backend Selector.
 The library provides intelligent backend selection through **transpilation-based error analysis**:
 
 1. **Transpiles** your circuit to each backend's native gate set
-2. **Calculates** the total expected error from all gates and qubits used
+2. **Calculates** the total expected error from all gates, readouts and idle time on the
+   qubits used
 3. **Averages** over multiple transpilation runs for stability (default: 3)
 4. **Ranks** backends by their actual expected error
 
@@ -121,17 +122,18 @@ Multiple backends are scored in parallel (up to 10 workers) automatically.
 
 ### What to Expect
 
-Transpilation dominates the run time; scoring a transpiled circuit takes milliseconds.
+Transpilation dominates the run time; scoring a transpiled circuit takes milliseconds
+(about 0.1 s for a 120-qubit QFT with ~46,000 operations).
 Measured on a 12-core laptop with Qiskit's fake IBM devices (127-156 qubits), seeded,
 3 transpilation runs per backend:
 
 | Circuit | 1 backend | 10 backends |
 |---|---|---|
-| GHZ, 100 qubits | < 0.1 s | 0.2 s |
-| QFT, 20 qubits | < 0.1 s | 0.6 s |
-| QFT, 60 qubits | 0.9 s | 3.5 s |
-| QFT, 120 qubits | 0.6 s | 6.9 s |
-| EfficientSU2 (full entanglement), 40 qubits x 5 reps | 0.6 s | 7.4 s |
+| GHZ, 100 qubits | < 0.1 s | 0.3 s |
+| QFT, 20 qubits | < 0.1 s | 0.8 s |
+| QFT, 60 qubits | 1.1 s | 4.7 s |
+| QFT, 120 qubits | 0.7 s | 9.4 s |
+| EfficientSU2 (full entanglement), 40 qubits x 5 reps | 0.7 s | 9.7 s |
 
 With real IBM backends, add the time to fetch each backend's calibration data and
 status. Use `transpilation_runs=1` when speed matters more than stability.
@@ -144,9 +146,11 @@ in mind when comparing backends:
 - **Independent errors only.** The success probability multiplies `(1 - error)` for
   every gate and readout, assuming errors are independent. Crosstalk and correlated
   errors are not modelled.
-- **No idle or decoherence error.** Time spent idle (delays, waiting on other qubits)
-  and T1/T2 decay over the circuit's duration are not included, so long circuits on
-  qubits with short coherence times look better than they are.
+- **Idle error is approximate.** Each qubit's idle time (waiting on other qubits, or
+  explicit delays) is charged decoherence from its T1/T2, assuming the circuit is
+  scheduled as late as possible. Dynamical decoupling, which suppresses idle error, is
+  not modelled, so with it enabled idle error is overestimated. Backends that don't
+  report gate durations or T1/T2 get no idle error.
 - **Readout counted for every used qubit**, even if the circuit doesn't measure it.
   This matches Estimator-style workloads, which measure all active qubits.
 - **Queue time is ignored.** The best-scoring backend may have the longest queue.

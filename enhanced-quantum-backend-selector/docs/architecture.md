@@ -57,10 +57,13 @@ The library implements intelligent backend selection using **transpilation-based
 
 1. Multiply `(1 - error)` for each gate operation in the transpiled circuit
 2. Multiply `(1 - readout_error)` for each used qubit
-3. Return the negative expected error: `score = -(1 - ESP)`
+3. Multiply `(1 - idle_error)` for each used qubit, from its T1/T2 and the time it
+   waits between its first and last operation (as-late-as-possible schedule)
+4. Return the negative expected error: `score = -(1 - ESP)`
 
 Gates with no reported error use the mean error of that gate across the device, so
-missing calibration data never makes a backend look better.
+missing calibration data never makes a backend look better. Missing gate durations and
+T1/T2 values fall back to device means the same way.
 
 **Note:** Transpilation happens in `BackendSelector`, which then passes the transpiled circuit to the scorer.
 
@@ -70,6 +73,8 @@ missing calibration data never makes a backend look better.
 # Score formula (in CircuitScorer)
 esp = prod(1 - gate.error_rate for gate in transpiled_circuit)
 esp *= prod(1 - qubit.readout_error for qubit in used_qubits)
+esp *= prod(1 - idle_error(qubit.idle_time, qubit.t1, qubit.t2) for qubit in used_qubits)
+# idle_error(t, T1, T2) = 1/2 - exp(-t/T1)/6 - exp(-t/T2)/3
 score = -(1 - esp)
 
 # Averaging (in BackendSelector)
