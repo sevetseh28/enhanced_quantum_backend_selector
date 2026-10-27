@@ -4,6 +4,8 @@ Unit tests for BackendSelector class.
 Tests cover initialization, ranking, selection, caching, and error handling.
 """
 
+import math
+
 import pytest
 from qiskit import QuantumCircuit
 from qiskit.providers.fake_provider import GenericBackendV2
@@ -13,6 +15,7 @@ from qiskit_ibm_runtime.fake_provider import FakeSherbrooke, FakeTorino
 from enhanced_quantum_backend_selector import (
     BackendRecommendation,
     BackendSelector,
+    CircuitScore,
 )
 
 
@@ -220,7 +223,43 @@ class TestReproducibility:
             (r.backend.name, r.score_data.score) for r in second
         ]
 
+    def test_saturated_scores_rank_by_log_success_probability(self, bell_circuit, monkeypatch):
+        """On deep circuits every score rounds to -1.0; the log success still ranks them."""
+        worse = GenericBackendV2(num_qubits=3, seed=1)
+        better = GenericBackendV2(num_qubits=3, seed=2)
+        log_success = {id(worse): -900.0, id(better): -600.0}
+
+        def fake_score(backend, circuit):
+            return BackendRecommendation(
+                backend=backend,
+                score_data=CircuitScore(
+                    backend=backend.name,
+                    compatible=True,
+                    score=-1.0,
+                    log_success_probability=log_success[id(backend)],
+                ),
+                rank=0,
+            )
+
+        selector = BackendSelector([worse, better])
+        monkeypatch.setattr(selector, "_score_single_backend", fake_score)
+
+        ranked = selector.rank_backends(bell_circuit)
+
+        assert [r.backend for r in ranked] == [better, worse]
+
     def test_scores_are_expected_errors(self, bell_circuit):
         ranked = BackendSelector([FakeTorino()], seed=1).rank_backends(bell_circuit)
 
         assert -1.0 < ranked[0].score_data.score < 0.0
+
+
+def test_log_mean_exp_matches_arithmetic_mean():
+    """Runs are averaged as probabilities, so one bad run doesn't dominate."""
+    from enhanced_quantum_backend_selector.backend_selector import _log_mean_exp
+
+    values = [math.log(0.5), math.log(0.1), -2000.0]
+
+    assert _log_mean_exp(values) == pytest.approx(math.log((0.5 + 0.1 + 0.0) / 3))
+    assert _log_mean_exp([-5000.0, -5001.0]) > -5001.0
+    assert _log_mean_exp([float("-inf")]) == float("-inf")

@@ -59,8 +59,9 @@ class CircuitScorer:
         return CircuitScore(
             backend=self.backend.name,
             compatible=True,
-            reasons=self._build_score_reasons(used_qubits, expected_error, missing),
+            reasons=self._build_score_reasons(used_qubits, log_success, missing),
             score=-expected_error,  # Negative so higher score = lower error
+            log_success_probability=log_success,
         )
 
     def _get_used_qubits(self, circuit: QuantumCircuit) -> set[int]:
@@ -142,14 +143,14 @@ class CircuitScorer:
         return self._mean_errors[op_name]
 
     def _build_score_reasons(
-        self, used_qubits: set[int], expected_error: float, missing: set[str]
+        self, used_qubits: set[int], log_success: float, missing: set[str]
     ) -> list[str]:
         """
         Build human-readable reasons explaining the score.
 
         Args:
             used_qubits: Set of qubit indices used in the circuit
-            expected_error: Expected error of the circuit (1 - success probability)
+            log_success: Log of the estimated success probability
             missing: Operations for which the backend reports no error data
 
         Returns:
@@ -158,8 +159,11 @@ class CircuitScorer:
         if not used_qubits:
             return ["No qubits used in circuit"]
 
+        # Show the probability in scientific notation so deep circuits stay readable
+        success = math.exp(log_success)
+        success_text = f"{success:.3g}" if success > 0 else f"e^{log_success:.1f}"
         reasons = [
-            f"Expected error on {len(used_qubits)} qubit(s): {expected_error * 100:.6f}%",
+            f"Estimated success probability on {len(used_qubits)} qubit(s): {success_text}",
             f"Used qubit(s): {sorted(used_qubits)}",
         ]
         if missing:
