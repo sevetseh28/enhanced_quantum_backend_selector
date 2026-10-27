@@ -16,6 +16,7 @@ pip install enhanced-quantum-backend-selector
 
 ```python
 from enhanced_quantum_backend_selector import BackendSelector
+from qiskit_ibm_runtime import SamplerV2
 
 selector = BackendSelector(backends)        # any list of Qiskit BackendV2
 best = selector.select_backend(circuit)     # transpile, score and pick the best
