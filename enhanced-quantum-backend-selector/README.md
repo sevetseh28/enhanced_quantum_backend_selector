@@ -162,3 +162,7 @@ If you use this library in your research, please cite:
 ## Contributing
 
 Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## Acknowledgements
+
+Developed as part of the [Qiskit Advocate Mentorship Program (QAMP)](https://github.com/qiskit-advocate/qamp-2025) 2025, mentored by Junye Huang ([@HuangJunye](https://github.com/HuangJunye)).
