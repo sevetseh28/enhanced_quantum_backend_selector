@@ -93,7 +93,7 @@ def run_single_benchmark(
 
     results = []
     for i, rec in enumerate(recommendations, 1):
-        error_pct = -rec.score_data.score * 100
+        error_pct = (1 - rec.score_data.score) * 100
         info = backend_info_map.get(rec.backend.name, {})
         proc_type = info.get("processor_type", "Unknown")
         print(

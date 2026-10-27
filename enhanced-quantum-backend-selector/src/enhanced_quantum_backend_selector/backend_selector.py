@@ -26,8 +26,8 @@ class BackendSelector:
     Intelligent quantum backend selector based on transpiled circuit error.
 
     For each backend, the circuit is transpiled to the device and scored by its
-    expected error: the gate errors on the physical qubits the transpiler chose,
-    plus their readout errors. Backends are considered incompatible when:
+    estimated success probability, from the gate, readout and idle errors on the
+    physical qubits the transpiler chose. Backends are considered incompatible when:
     - the circuit needs more qubits than the backend has,
     - the backend reports that it is not operational, or
     - transpilation to the backend fails.
@@ -124,8 +124,8 @@ class BackendSelector:
                 operational, and the circuit transpiles). If True and no compatible
                 backends exist, raises an exception.
             min_score: Minimum acceptable score. Backends below this
-                threshold are excluded. Scores are negative expected errors,
-                so -0.01 (1% error) is better than -0.05 (5% error).
+                threshold are excluded. Scores are success probabilities,
+                so 0.95 means at least a 95% chance of running without error.
 
         Returns:
             BackendRecommendation with the highest-scored backend and details.
@@ -138,8 +138,8 @@ class BackendSelector:
             >>> # Simple selection
             >>> best = selector.select_backend(circuit)
             >>>
-            >>> # With minimum quality threshold (< 5% expected error)
-            >>> best = selector.select_backend(circuit, min_score=-0.05)
+            >>> # With minimum quality threshold (at least 95% success probability)
+            >>> best = selector.select_backend(circuit, min_score=0.95)
         """
         ranked = self.rank_backends(circuit)
 
@@ -175,9 +175,9 @@ class BackendSelector:
         Rank all backends for a quantum circuit.
 
         Analyzes each backend against circuit requirements using transpilation-based
-        error analysis. Backends are sorted by score (highest/least negative first).
+        error analysis. Backends are sorted by success probability, highest first.
         Incompatible backends are included with ``compatible=False`` and a score of
-        ``-inf``, so they always rank last.
+        0, and always rank last.
 
         Args:
             circuit: The quantum circuit to analyze and match against backends.
@@ -210,7 +210,7 @@ class BackendSelector:
         recommendations = self._score_backends_parallel(circuit)
 
         # Sort by success probability (descending), using the input order to break ties.
-        # The log keeps deep circuits apart where score rounds to -1.0 for every backend.
+        # The log keeps very deep circuits apart where score underflows to 0 for every backend.
         order = {id(backend): i for i, backend in enumerate(self.backends)}
         recommendations.sort(
             key=lambda r: (-r.score_data.log_success_probability, order[id(r.backend)])
@@ -318,9 +318,8 @@ class BackendSelector:
 
         # Average the success probabilities, computed in log space so deep circuits
         # don't underflow, and derive the score from it so score and ranking always
-        # agree. expm1(x) == -(1 - e^x).
+        # agree.
         avg_log_success = _log_mean_exp(log_successes)
-        avg_score = math.expm1(avg_log_success)
 
         # Note whether this backend instance was created with fractional gates
         # (service.backend(name, use_fractional_gates=True)). The selector does not
@@ -336,10 +335,10 @@ class BackendSelector:
             reasons=all_reasons
             + [
                 f"Average over {self.transpilation_runs} transpilation runs: "
-                f"score {avg_score:.6f}, success probability {success_text}",
+                f"success probability {success_text}",
                 gate_note,
             ],
-            score=avg_score,
+            score=math.exp(avg_log_success),
             log_success_probability=avg_log_success,
         )
 
@@ -372,7 +371,7 @@ def _incompatible(backend: BackendV2, reason: str) -> BackendRecommendation:
             backend=backend.name,
             compatible=False,
             reasons=[reason],
-            score=float("-inf"),
+            score=0.0,
             log_success_probability=float("-inf"),
         ),
         rank=0,

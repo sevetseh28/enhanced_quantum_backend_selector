@@ -22,8 +22,8 @@ class CircuitScorer:
     The score is built from the estimated success probability (ESP) of the circuit,
     the product of ``(1 - error)`` over every gate in the circuit, the readout of
     every qubit it uses, and the time each qubit spends idle. The reported score is
-    ``-(1 - ESP)``, the negative expected error, so it lies in ``[-1, 0]`` and higher
-    is better.
+    the ESP itself, between 0 and 1: ``0.98`` means a 98% chance the circuit runs
+    without error. Higher is better.
 
     Idle error comes from each qubit's T1/T2 and the time it waits between its first
     and last operation, using gate durations from the backend and an as-late-as-possible
@@ -68,7 +68,6 @@ class CircuitScorer:
         log_success, missing = self._log_success_probability(circuit, used_qubits)
         log_idle, idle_time = self._log_idle_fidelity(circuit)
         log_success += log_idle
-        expected_error = 1.0 - math.exp(log_success)
 
         reasons = self._build_score_reasons(used_qubits, log_success, missing)
         if idle_time > 0:
@@ -81,7 +80,7 @@ class CircuitScorer:
             backend=self.backend.name,
             compatible=True,
             reasons=reasons,
-            score=-expected_error,  # Negative so higher score = lower error
+            score=math.exp(log_success),
             log_success_probability=log_success,
         )
 

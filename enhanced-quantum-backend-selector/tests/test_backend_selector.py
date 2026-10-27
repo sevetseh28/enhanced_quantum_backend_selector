@@ -164,7 +164,8 @@ class TestCompatibility:
         assert ranked[0].backend is large
         assert ranked[1].backend is small
         assert ranked[1].score_data.compatible is False
-        assert ranked[1].score_data.score == float("-inf")
+        assert ranked[1].score_data.score == 0.0
+        assert ranked[1].score_data.log_success_probability == float("-inf")
         assert "needs 4 qubits" in ranked[1].score_data.reasons[0]
 
     def test_non_operational_backend_is_incompatible(self, bell_circuit):
@@ -202,7 +203,7 @@ class TestCompatibility:
         selector = BackendSelector([GenericBackendV2(num_qubits=3, seed=1)])
 
         with pytest.raises(RuntimeError, match="minimum score threshold"):
-            selector.select_backend(bell_circuit, min_score=0.0)
+            selector.select_backend(bell_circuit, min_score=1.0)
 
 
 class TestReproducibility:
@@ -224,10 +225,10 @@ class TestReproducibility:
         ]
 
     def test_saturated_scores_rank_by_log_success_probability(self, bell_circuit, monkeypatch):
-        """On deep circuits every score rounds to -1.0; the log success still ranks them."""
+        """On very deep circuits every score underflows to 0; the log success ranks them."""
         worse = GenericBackendV2(num_qubits=3, seed=1)
         better = GenericBackendV2(num_qubits=3, seed=2)
-        log_success = {id(worse): -900.0, id(better): -600.0}
+        log_success = {id(worse): -900.0, id(better): -800.0}
 
         def fake_score(backend, circuit):
             return BackendRecommendation(
@@ -235,7 +236,7 @@ class TestReproducibility:
                 score_data=CircuitScore(
                     backend=backend.name,
                     compatible=True,
-                    score=-1.0,
+                    score=0.0,
                     log_success_probability=log_success[id(backend)],
                 ),
                 rank=0,
@@ -248,10 +249,12 @@ class TestReproducibility:
 
         assert [r.backend for r in ranked] == [better, worse]
 
-    def test_scores_are_expected_errors(self, bell_circuit):
+    def test_scores_are_success_probabilities(self, bell_circuit):
         ranked = BackendSelector([FakeTorino()], seed=1).rank_backends(bell_circuit)
+        score_data = ranked[0].score_data
 
-        assert -1.0 < ranked[0].score_data.score < 0.0
+        assert 0.0 < score_data.score < 1.0
+        assert score_data.score == pytest.approx(math.exp(score_data.log_success_probability))
 
 
 def test_log_mean_exp_matches_arithmetic_mean():
