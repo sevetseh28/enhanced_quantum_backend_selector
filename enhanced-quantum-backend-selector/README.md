@@ -121,7 +121,7 @@ for the full list and expected run times.
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.
+See [CONTRIBUTING.md](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/CONTRIBUTING.md) for development setup and guidelines.
 
 ```bash
 # Clone repository
@@ -166,21 +166,21 @@ poetry run pytest tests/test_benchmarks.py -v
 - **IBM Heron R3**: 156 qubits, heavy-hex topology, improved error rates
 - **IBM Nighthawk**: 120 qubits, square lattice, superior connectivity
 
-See [Benchmarking Guide](docs/benchmarking.md) for detailed methodology, metrics, and references.
+See [Benchmarking Guide](https://sevetseh28.github.io/enhanced_quantum_backend_selector/benchmarking/) for detailed methodology, metrics, and references.
 
 ## Documentation
 
-- [User Guide](docs/user-guide.md)
-- [API Reference](docs/api-reference.md)
-- [Benchmarking Guide](docs/benchmarking.md)
-- [Examples](examples/)
-- [Contributing Guidelines](CONTRIBUTING.md)
-- [Release Process](RELEASE.md)
-- [Changelog](CHANGELOG.md)
+- [User Guide](https://sevetseh28.github.io/enhanced_quantum_backend_selector/user-guide/)
+- [API Reference](https://sevetseh28.github.io/enhanced_quantum_backend_selector/api-reference/)
+- [Benchmarking Guide](https://sevetseh28.github.io/enhanced_quantum_backend_selector/benchmarking/)
+- [Examples](https://github.com/sevetseh28/enhanced_quantum_backend_selector/tree/main/enhanced-quantum-backend-selector/examples)
+- [Contributing Guidelines](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/CONTRIBUTING.md)
+- [Release Process](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/RELEASE.md)
+- [Changelog](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/CHANGELOG.md)
 
 ## License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/LICENSE) file for details.
 
 ## Citation
 
@@ -197,7 +197,7 @@ If you use this library in your research, please cite:
 
 ## Contributing
 
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+Contributions are welcome! Please read [CONTRIBUTING.md](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## Acknowledgements
 
