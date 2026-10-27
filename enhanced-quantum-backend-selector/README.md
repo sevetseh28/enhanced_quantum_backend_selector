@@ -18,6 +18,27 @@ Quantum computing users typically rely on simplistic backend selection methods l
 - **Direct Quality Metric**: Score = negative expected error, between -1 and 0 (higher is better)
 - **Compatibility Checks**: Backends with too few qubits, that are offline, or that fail to transpile are flagged and ranked last
 
+## How It Works
+
+```mermaid
+flowchart TD
+    IN["Your circuit + list of BackendV2"] --> BS["BackendSelector<br/>select_backend() / rank_backends()"]
+    BS -->|"each backend in parallel"| CHK{"Enough qubits<br/>and operational?"}
+    CHK -->|no| INC["CircuitScore<br/>compatible=False, score=-inf"]
+    CHK -->|yes| TR["transpile() x N runs<br/>optimization_level=2, seed + run"]
+    TR -->|fails| INC
+    TR --> CS["CircuitScorer.score_circuit()<br/>success probability =<br/>product of (1 - gate error) x (1 - readout error)<br/>on the qubits the transpiler chose"]
+    CS --> AVG["Average the N runs into one CircuitScore<br/>score, log_success_probability, reasons"]
+    AVG --> RANK["Rank by log_success_probability"]
+    INC --> RANK
+    RANK --> OUT["BackendRecommendation<br/>backend, score_data, rank"]
+```
+
+`BackendSelector` is the entry point. For each backend it transpiles your circuit and
+hands the result to `CircuitScorer`, which looks up the calibrated error of every gate
+and readout on the qubits that were actually used. Each backend ends up with a
+`CircuitScore`, and the ranked list is returned as `BackendRecommendation` objects.
+
 ## Installation
 
 ```bash
