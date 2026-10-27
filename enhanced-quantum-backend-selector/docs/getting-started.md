@@ -7,7 +7,7 @@ This guide covers installation and basic usage of the Enhanced Quantum Backend S
 ### Requirements
 
 - Python 3.10 or higher
-- Qiskit 2.2.3 or higher
+- Qiskit 2.2 or higher
 
 ### Install from PyPI
 

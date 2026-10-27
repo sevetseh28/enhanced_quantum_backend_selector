@@ -37,7 +37,7 @@ jobs:
           if [ "${{ matrix.qiskit }}" = "minimum" ]; then
             # Keep in sync with the lower bound of the qiskit dependency in pyproject.toml.
             # Resolved together so test dependencies are downgraded to versions that support it.
-            pip install -e ".[dev]" "qiskit==2.2.3"
+            pip install -e ".[dev]" "qiskit==2.2.0"
           else
             pip install -e ".[dev]"
           fi
