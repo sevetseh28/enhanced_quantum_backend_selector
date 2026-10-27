@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 # Operations to skip when calculating gate errors.
 # These operations do not contribute to gate-based errors:
 # - "measure": Measurement errors are modeled separately from gate errors.
-# - "delay": Delays are not physical gates and have distinct error models (e.g., decoherence).
+# - "delay": Delays are not physical gates; their decoherence is charged as idle error.
 # - "reset": Reset operations are handled separately and have their own error characteristics.
 # Only gate operations are considered when aggregating gate error metrics.
 SKIP_OPERATIONS = frozenset(["measure", "delay", "reset"])
