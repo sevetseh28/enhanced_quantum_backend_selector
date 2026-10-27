@@ -1,6 +1,6 @@
 [project]
 name = "enhanced-quantum-backend-selector"
-version = "0.1.0"
+version = "1.0.0"
 description = "Intelligent quantum backend selection for Qiskit circuits"
 authors = [
     {name = "Hernan Esteves", email = "hernaner28@gmail.com"}

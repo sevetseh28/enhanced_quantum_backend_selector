@@ -1,10 +1,178 @@
 # CHANGELOG
 
 
+## v1.0.0 (2026-10-27)
+
+### Bug Fixes
+
+- **scoring**: Score by estimated success probability
+  ([`44e6408`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/44e6408212b19de0f4a8d74e0d9fd87630a11ac7))
+
+Replace the plain sum of gate and readout errors with the circuit's estimated success probability
+  (product of 1 - error), computed in log space. The score is now -(1 - ESP), bounded to [-1, 0]
+  even for deep circuits.
+
+Gates without reported error on their qubits are charged the device's mean error for that gate
+  instead of zero, so missing calibration data no longer makes a backend look better. Operations
+  with no error data anywhere on the device are listed in the score reasons.
+
+- **selector**: Flag incompatible backends and add seeded transpilation
+  ([`f49807d`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/f49807d748d622693baf3adf152fd3995dfedd19))
+
+Backends are now marked compatible=False with a score of -inf when the circuit needs more qubits
+  than they have, when status() reports them as not operational, or when transpilation or scoring
+  fails. They stay in rank_backends() results, ranked last with the reason attached, so
+  require_compatible actually filters and a failing backend no longer causes an IndexError in
+  select_backend().
+
+Add a seed parameter so the same inputs produce the same ranking, break score ties by input order,
+  report failures through logging instead of print, and correct docstrings that described scoring
+  criteria the selector doesn't use.
+
+- **selector**: Keep deep circuits distinguishable when ranking
+  ([`bb0f061`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/bb0f06174d696cf33b69c52930a0aef5b3fff28f))
+
+For deep circuits the estimated success probability falls below ~1e-16, 1 - ESP rounds to exactly
+  1.0, and every backend scored -1.0, so the ranking silently fell back to input order.
+
+Add CircuitScore.log_success_probability and rank by it. Transpilation runs are averaged as
+  probabilities (log-mean-exp) so one run routed through a broken coupler doesn't outweigh the
+  others, and the score is derived from that average so score and ranking always agree. Reasons now
+  show the success probability in scientific notation.
+
+### Documentation
+
+- Add a diagram of how backends are scored and ranked
+  ([`e9c0361`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/e9c0361622f0a3fb5f5e89cce62a443185255cd6))
+
+- Add a short usage example at the top of the README
+  ([`6ce6044`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/6ce60443ffeb5bf3c30adf669767b074f17890ca))
+
+- Catch RuntimeError when no backend can run the circuit
+  ([`269db0f`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/269db0f1e1b92125afb43f8eede1c2d058c6d5a2))
+
+select_backend raises RuntimeError when no backend is compatible or meets min_score, but the
+  examples caught ValueError and then fell back to the top of rank_backends, which is a backend that
+  cannot run the circuit. Report each backend's reason instead.
+
+- Colour the README diagram by component
+  ([`d0ae2aa`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/d0ae2aa884417a2ac453db96a62fede234fe0dfa))
+
+- Describe idle error in the scoring model and update run times
+  ([`4edc9d5`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/4edc9d5928327965b362bf1600792e836844da37))
+
+- Describe scores as success probabilities
+  ([`064428d`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/064428d3617222a0ae081b81e15dc15b65b51b47))
+
+- Describe success-probability scoring, seed and compatibility
+  ([`68ecdf6`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/68ecdf6af70360bdc6047fb733c4cb8016e1b9c3))
+
+Update the score formula and interpretation, document the seed parameter and incompatible-backend
+  behaviour, fix the select_backend API reference, use live badges, and remove the caching feature
+  claim, which the library doesn't implement.
+
+- Document limitations, expected run times and log_success_probability
+  ([`44b04d7`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/44b04d7fb5cea1cbf364615f9c22b91d3a11ac9b))
+
+List what the score doesn't model (correlated errors, idle and decoherence error, queue time), how
+  transpilation settings, broken couplers and missing calibration data affect it, and measured run
+  times on 127-156 qubit fake IBM devices.
+
+- Import SamplerV2 in the README usage example
+  ([`dc46b1a`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/dc46b1a6c5149b8ee6b61e1b0b8fb7a5f2d7128e))
+
+- Make the root README a symlink to the package README
+  ([`70b0f2a`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/70b0f2a7f967f9c325ca7bd8d265209681838036))
+
+The root README only linked to the package README, so visitors to the repository had to click
+  through to see what the library does.
+
+- Move QAMP checkpoint report out of the repo and credit QAMP
+  ([`1186202`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/1186202ecd0ad1b14dc71df3059f19e6150416fb))
+
+The checkpoint was a mentorship progress report rather than library documentation, and its roadmap
+  is complete. Credit the program and mentor in the README instead.
+
+- Point the docs contributing page at CONTRIBUTING.md
+  ([`733b1a3`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/733b1a37ff92cab69a7a6ca80ba345a04a617a0e))
+
+The page was a shorter copy of CONTRIBUTING.md that had already drifted from it, e.g. it installed
+  pre-commit without the subdirectory config.
+
+- Remove one-time GitHub and CI/CD setup checklists
+  ([`5f02268`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/5f02268f892de4760bc88ee1bf2d902ad867bdfd))
+
+The repository settings, secrets, environments and trusted publishing they describe are already
+  configured, and they are not useful to users or contributors.
+
+- Remove references to the removed BackendAnalyzer and its cache
+  ([`29b2602`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/29b2602f5d54eab63aff2fcfa51c4feecf8b4800))
+
+BackendAnalyzer and selector.clear_cache() were removed in 9db7eae, but the user guide, architecture
+  page, API reference and contributing guide still described them.
+
+- Use absolute links in the package README
+  ([`a73baab`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/a73baabbbeaa6d97ccc1ca709dc1c04bf49b5b90))
+
+Relative links do not resolve on PyPI. Docs pages now point to the published documentation site and
+  repository files to GitHub.
+
+### Features
+
+- Mark the package as production/stable for 1.0
+  ([`b88fc91`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/b88fc91c4e28af845f6f2f405854dcaa1d82fefc))
+
+BREAKING CHANGE: scores now mean something different and some calls return or raise differently than
+  in 0.1.0.
+
+- CircuitScore.score is the estimated probability that the circuit runs without error, from 0 to 1,
+  including gate, readout and idle error. Thresholds passed as min_score must use this scale, e.g.
+  0.9 for at least a 90% success probability. - CircuitScore.score defaults to 1.0 instead of 100,
+  and the new log_success_probability field is what backends are ranked by. - rank_backends returns
+  incompatible backends too, last, with compatible=False and a score of 0. Filter on
+  score_data.compatible if you only want usable backends. - A backend that fails to transpile or is
+  not operational is reported as incompatible instead of being dropped. - BackendAnalyzer and
+  BackendSelector.clear_cache were removed.
+
+- **deps**: Support Qiskit 2.2.0 and later
+  ([`6c58f19`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/6c58f193d4c7af299cadc470ef74cadeee36390c))
+
+Lower the minimum from 2.2.3 to 2.2.0, the earliest release that is safe for the selector. Qiskit
+  2.0 and 2.1 panic with PyBorrowError in high-level synthesis when backends are transpiled from
+  several threads at once: about a third of parallel rankings crashed on 2.1.x and more on 2.0.x,
+  while 2.2.0 completed 60 out of 60.
+
+- **scoring**: Include idle decoherence in the success probability
+  ([`3745f2f`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/3745f2fbf4bf8a1f922718aeb4a930306c522602))
+
+Each used qubit is now charged the average infidelity of T1/T2 decay over the time it waits between
+  its first and last operation, with the circuit scheduled as late as possible from the backend's
+  gate durations. Explicit delays count as idle time. Missing durations and T1/T2 fall back to
+  device means; backends without either get no idle error.
+
+On ibm_kingston, ibm_fez and ibm_marrakesh, across GHZ-10, GHZ-30 and an 8-qubit QFT mirror circuit,
+  the mean gap between predicted and measured success probability dropped from 0.22 to 0.14.
+
+- **scoring**: Report the score as the estimated success probability
+  ([`0b5a2ba`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/0b5a2baacd418affcdf8f7d5c49dbb6b7b377b6e))
+
+score is now the probability that the circuit runs without error, from 0 to 1, instead of its
+  negative expected error. 0.98 reads directly as a 98% chance of success and min_score=0.9 as "at
+  least 90%". Incompatible backends score 0. Scores also stay distinguishable much longer on deep
+  circuits: they only underflow to 0 below about 5e-324, where before they all rounded to -1.0 below
+  about 1e-16.
+
+### Refactoring
+
+- Remove BackendAnalyzer and update scoring logic in BackendSelector and tests
+  ([`9db7eae`](https://github.com/sevetseh28/enhanced_quantum_backend_selector/commit/9db7eaeeadc5bd81367cf91abace30e9c94e05f4))
+
+### Breaking Changes
+
+- Scores now mean something different and some calls return or raise differently than in 0.1.0.
+
+
 ## v0.1.0 (2026-01-20)
-
-
-## v0.0.0 (2026-01-20)
 
 ### Bug Fixes
 
