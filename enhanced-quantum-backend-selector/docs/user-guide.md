@@ -31,8 +31,8 @@ The score is based on **transpilation-based error estimation**:
 rec = selector.select_backend(qc)
 
 print(f"Backend: {rec.backend.name}")
-print(f"Score: {rec.score_data.score:.3f}")  # Negative expected error
-print(f"Expected error: {-rec.score_data.score:.2%}")
+print(f"Score: {rec.score_data.score:.3f}")  # Success probability, 0 to 1
+print(f"Expected error: {1 - rec.score_data.score:.2%}")
 
 # Human-readable reasons
 for reason in rec.score_data.reasons:
@@ -41,11 +41,10 @@ for reason in rec.score_data.reasons:
 
 **Score interpretation:**
 
-- Score is the negative expected error: `score = -(1 - ESP)`, between -1 and 0
-- Incompatible backends (too few qubits, offline, or transpilation failed) have `compatible=False` and a score of `-inf`
+- Score is the estimated success probability (ESP), between 0 and 1: `0.98` means a 98% chance the circuit runs without error
+- Incompatible backends (too few qubits, offline, or transpilation failed) have `compatible=False` and a score of `0`
 - Pass `seed=` to `BackendSelector` for reproducible scores
-- **Higher scores are better** (less negative = lower error)
-- `-0.01` (1% error) is better than `-0.05` (5% error)
+- **Higher scores are better**: `0.99` (1% error) is better than `0.95` (5% error)
 
 ## Advanced Features
 
@@ -65,9 +64,9 @@ top_3 = selector.rank_backends(qc, top_n=3)
 ### Minimum Score Filtering
 
 ```python
-# Require max 10% total error
+# Require at least a 90% success probability (at most 10% error)
 try:
-    rec = selector.select_backend(qc, min_score=-0.1)
+    rec = selector.select_backend(qc, min_score=0.9)
 except RuntimeError as e:
     print(f"No backends met threshold: {e}")
 ```
@@ -160,7 +159,7 @@ in mind when comparing backends:
 - **Broken couplers.** Some devices report gates with an error of 1.0. If the
   transpiler routes through one, the success probability for that run is effectively
   zero. On circuits large enough that every run does this, all backends score about
-  `-1.0` and the ranking reflects which backend needs the fewest broken gates, which
+  `0` and the ranking reflects which backend needs the fewest broken gates, which
   is a weak signal.
 - **Missing calibration data** is filled in with the mean error of the same gate on
   that device; gates with no data anywhere count as error-free and are listed in the
@@ -186,7 +185,7 @@ except RuntimeError as e:
 rec = selector.select_backend(qc)
 
 # Check error rate
-error_pct = -rec.score_data.score * 100
+error_pct = (1 - rec.score_data.score) * 100
 if error_pct > 10:
     print(f"Warning: {error_pct:.1f}% expected error")
 ```
@@ -197,7 +196,7 @@ if error_pct > 10:
 top_5 = selector.rank_backends(qc, top_n=5)
 
 for rec in top_5:
-    error_pct = -rec.score_data.score * 100
+    error_pct = (1 - rec.score_data.score) * 100
     print(f"#{rec.rank}: {rec.backend.name} - {error_pct:.2f}% error")
 ```
 
@@ -211,7 +210,7 @@ def select_production_backend(circuit, backends):
     try:
         rec = selector.select_backend(circuit, require_compatible=True)
 
-        error_pct = -rec.score_data.score * 100
+        error_pct = (1 - rec.score_data.score) * 100
         if error_pct < 10:
             return rec.backend, "optimal"
         else:
