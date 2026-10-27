@@ -1,10 +1,11 @@
 # Pre-commit hooks for Enhanced Quantum Backend Selector
-# Install: pre-commit install
-# Run manually: pre-commit run --all-files
+# Run these from the repository root:
+#   Install:        pre-commit install --config enhanced-quantum-backend-selector/.pre-commit-config.yaml
+#   Run manually:   pre-commit run --config enhanced-quantum-backend-selector/.pre-commit-config.yaml --all-files
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.6.9
+    rev: v0.6.9  # keep in sync with ruff in poetry.lock
     hooks:
       - id: ruff
         args: [--fix]
@@ -13,17 +14,19 @@ repos:
         exclude: ^(.*/)?(exploration|examples)/
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.11.2
+    rev: v1.18.2  # keep in sync with mypy in poetry.lock
     hooks:
       - id: mypy
         additional_dependencies: [qiskit>=2.2.3]
-        exclude: ^(.*/)?(exploration|examples|tests)/
-        files: ^src/
+        # Hooks run from the repo root, so paths include the package directory
+        args: [--config-file=enhanced-quantum-backend-selector/pyproject.toml]
+        files: ^enhanced-quantum-backend-selector/src/
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]  # keep Markdown hard line breaks
       - id: end-of-file-fixer
       - id: check-yaml
       - id: check-added-large-files
