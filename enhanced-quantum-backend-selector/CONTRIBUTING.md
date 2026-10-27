@@ -284,10 +284,8 @@ The release process is **fully automated**:
 
 ## Code of Conduct
 
-- Be respectful and inclusive
-- Provide constructive feedback
-- Focus on the code, not the person
-- Help newcomers get started
+This project follows the [Qiskit Code of Conduct](https://qisk.it/coc). See
+[CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md).
 
 ## License
 
