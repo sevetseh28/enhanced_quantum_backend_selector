@@ -189,7 +189,7 @@ For projects not yet published to PyPI:
    password = pypi-YOUR-API-TOKEN
    EOF
    chmod 600 ~/.pypirc
-   
+
    # Method 2: Using environment variable
    export POETRY_PYPI_TOKEN_PYPI=pypi-YOUR-API-TOKEN
    ```
@@ -240,7 +240,7 @@ permissions:
   id-token: write  # Required for OIDC authentication
   contents: read
 
-environment: 
+environment:
   name: ${{ github.event.inputs.test-pypi == 'true' && 'testpypi' || 'pypi' }}
 ```
 

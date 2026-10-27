@@ -150,7 +150,7 @@ poetry publish
   [pypi]
   username = __token__
   password = pypi-YOUR-API-TOKEN
-  
+
   [testpypi]
   username = __token__
   password = pypi-YOUR-TEST-API-TOKEN
