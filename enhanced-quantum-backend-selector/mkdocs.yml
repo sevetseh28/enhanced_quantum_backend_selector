@@ -81,6 +81,7 @@ nav:
   - Examples: examples.md
   - Benchmarking: benchmarking.md
   - API Reference: api-reference.md
+  - Migrating to 1.0: migration.md
   - Architecture: architecture.md
   - Contributing: contributing.md
 

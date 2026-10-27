@@ -194,6 +194,7 @@ See [Benchmarking Guide](https://sevetseh28.github.io/enhanced_quantum_backend_s
 
 - [User Guide](https://sevetseh28.github.io/enhanced_quantum_backend_selector/user-guide/)
 - [API Reference](https://sevetseh28.github.io/enhanced_quantum_backend_selector/api-reference/)
+- [Migrating from 0.1 to 1.0](https://sevetseh28.github.io/enhanced_quantum_backend_selector/migration/)
 - [Benchmarking Guide](https://sevetseh28.github.io/enhanced_quantum_backend_selector/benchmarking/)
 - [Examples](https://github.com/sevetseh28/enhanced_quantum_backend_selector/tree/main/enhanced-quantum-backend-selector/examples)
 - [Contributing Guidelines](https://github.com/sevetseh28/enhanced_quantum_backend_selector/blob/main/enhanced-quantum-backend-selector/CONTRIBUTING.md)
