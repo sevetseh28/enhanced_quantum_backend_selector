@@ -80,6 +80,13 @@ for rec in rankings:
     print(f"#{rec.rank}. {rec.backend.name}: {rec.score_data.score:.4f} ({error_pct:.2f}% error)")
 ```
 
+## Limitations
+
+Scores are estimates from reported calibration data. They assume independent errors,
+and leave out crosstalk, idle/decoherence error, and queue time. See
+[Limitations](https://sevetseh28.github.io/enhanced_quantum_backend_selector/user-guide/#limitations)
+for the full list and expected run times.
+
 ## Development
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup and guidelines.

@@ -102,6 +102,7 @@ class CircuitScore:
     compatible: bool            # Whether backend can run the circuit
     reasons: list[str]          # Human-readable explanations
     score: float                # Negative expected error (higher is better)
+    log_success_probability: float  # ln(success probability), used for ranking
 ```
 
 **Score interpretation:**
@@ -109,6 +110,8 @@ class CircuitScore:
 - Score = negative expected error: `-(1 - ESP)`, between -1 and 0
 - Incompatible backends have `compatible=False` and a score of `-inf`
 - Higher scores are better (less negative = lower error)
+- Backends are ranked by `log_success_probability`, which keeps deep circuits apart
+  when every score rounds to `-1.0`
 - Example: `-0.01` (1% error) is better than `-0.05` (5% error)
 
 ## Type Hierarchy
