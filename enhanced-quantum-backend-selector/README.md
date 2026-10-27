@@ -8,6 +8,26 @@
 
 Intelligent quantum backend selection for Qiskit circuits using transpilation-based error analysis.
 
+## Usage
+
+```bash
+pip install enhanced-quantum-backend-selector
+```
+
+```python
+from enhanced_quantum_backend_selector import BackendSelector
+
+selector = BackendSelector(backends)        # any list of Qiskit BackendV2
+best = selector.select_backend(circuit)     # transpile, score and pick the best
+
+print(best.backend.name)                    # e.g. "ibm_kingston"
+sampler = SamplerV2(mode=best.backend)      # run on it as usual
+
+ranking = selector.rank_backends(circuit)   # every backend, best first
+```
+
+See the [Quick Start](#quick-start) for a complete example with IBM Quantum backends.
+
 ## Overview
 
 Quantum computing users typically rely on simplistic backend selection methods like `least_busy()`, which only considers queue depth. This library provides intelligent backend selection by **transpiling your circuit to each backend** and calculating the actual expected error rates:
