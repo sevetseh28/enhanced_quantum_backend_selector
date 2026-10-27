@@ -24,7 +24,10 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "qiskit>=2.2.3,<3.0.0",
+    # Qiskit 2.0 and 2.1 crash intermittently (PyBorrowError in high-level synthesis)
+    # when backends are transpiled from several threads at once, which the selector
+    # does. 2.2.0 is the first release where this no longer happens.
+    "qiskit>=2.2.0,<3.0.0",
 ]
 
 [project.optional-dependencies]

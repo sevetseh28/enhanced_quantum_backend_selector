@@ -17,7 +17,7 @@ repos:
     rev: v1.18.2  # keep in sync with mypy in poetry.lock
     hooks:
       - id: mypy
-        additional_dependencies: [qiskit>=2.2.3]
+        additional_dependencies: [qiskit>=2.2.0]
         # Hooks run from the repo root, so paths include the package directory
         args: [--config-file=enhanced-quantum-backend-selector/pyproject.toml]
         files: ^enhanced-quantum-backend-selector/src/
