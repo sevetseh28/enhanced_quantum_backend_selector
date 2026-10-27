@@ -1,6 +1,6 @@
 site_name: Enhanced Quantum Backend Selector
 site_description: Intelligent quantum backend selection for Qiskit circuits
-site_author: sevetseh28
+site_author: Hernan Esteves
 site_url: https://github.com/sevetseh28/enhanced_quantum_backend_selector
 
 repo_name: sevetseh28/enhanced_quantum_backend_selector
