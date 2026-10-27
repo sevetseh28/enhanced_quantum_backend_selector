@@ -10,7 +10,7 @@ license = {text = "Apache-2.0"}
 requires-python = ">=3.10"
 keywords = ["quantum", "qiskit", "backend", "optimization", "quantum-computing"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Science/Research",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
